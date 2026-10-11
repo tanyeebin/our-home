@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8efe0">
+  <meta name="description" content="A little cozy home for two. Come in, take a breath, and make today a little brighter.">
+  <title>Our Cozy Home · a little place for us</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="Our Cozy Home">
+        <span class="brand-mark">⌂</span>
+        <span><b>our cozy home</b><small>a little place for us</small></span>
+      </a>
+      <div class="top-note"><span class="sun-dot"></span> You don't have to do it all today.</div>
+      <button class="icon-button music-button" id="musicButton" aria-label="Play or pause music" title="Play or pause music"><span id="musicIcon">♫</span></button>
+    </header>
+
+    <section class="welcome-row">
+      <div>
+        <p class="eyebrow" id="todayDate">A SOFT PLACE TO LAND</p>
+        <h1>Come on in, <span>love.</span></h1>
+        <p class="subtitle">Our little home is here whenever you need a pause.</p>
+      </div>
+      <button class="song-pill" id="songPicker" title="Choose a song"><span class="vinyl">◉</span><span><b>Now playing</b><small id="songName">I Love You So · The Walters</small></span><span class="chevron">⌄</span></button>
+    </section>
+
+    <section class="dashboard">
+      <aside class="quest-card card">
+        <div class="card-heading"><div><span class="section-kicker">TODAY'S LITTLE THINGS</span><h2>Three gentle quests</h2></div><span class="sparkle">✦</span></div>
+        <p class="card-intro">Tiny moments count. Pick any one to begin.</p>
+        <div id="questList" class="quest-list" aria-live="polite"></div>
+        <div class="quest-footer"><span><span class="green-dot"></span> No rush, take your time</span><button id="refreshHint" class="text-button" title="Tasks refresh each new day">refreshes daily ↻</button></div>
+      </aside>
+
+      <aside class="level-card card">
+        <div class="level-top"><span class="section-kicker">YOUR LITTLE JOURNEY</span><span class="level-badge" id="levelBadge">LV. 1</span></div>
+        <div class="level-display"><div class="level-number" id="levelNumber">1</div><div><h2>Cozy level</h2><p id="xpLabel">0 / 10 little stars</p></div></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <p class="level-note"><span>✿</span> Every kind thing you do here earns 5 stars.</p>
+        <div class="tiny-stats"><span>✦ <b id="totalXp">0</b> stars collected</span><span>♡ Just for you</span></div>
+      </aside>
+    </section>
+
+    <section class="house-section" id="home">
+      <div class="house-heading"><div><span class="section-kicker">YOUR HAPPY LITTLE PLACE</span><h2>Look around our home</h2></div><div class="controls-hint"><span class="mouse-icon">⌖</span><span><b>Left click</b> to explore <i>·</i> <b>Right drag</b> to look around</span><button class="reset-view" id="resetView" title="Reset view">Reset view</button></div></div>
+      <div class="scene-frame" id="sceneFrame">
+        <div class="scene-world" id="sceneWorld"><canvas id="homeCanvas" aria-label="Interactive 3D model of our cozy home"></canvas></div>
+        <div class="scene-hud"><span class="hud-pill"><i>◉</i> 3D HOME</span><span class="hud-message" id="sceneMessage">Click an object to explore</span></div>
+        <div class="scene-toast" id="sceneToast" role="status" aria-live="polite"><span id="toastEmoji">💛</span><span><b id="toastTitle">A little moment</b><small id="toastText">Every small thing counts.</small></span><button id="closeToast" aria-label="Dismiss">×</button></div>
+        <div class="music-note-float" id="musicNotes" aria-hidden="true">♪ ♫</div>
+      </div>
+      <p class="scene-footnote">Left click an object to interact · left drag to pan · right drag to orbit the 3D view. <span>☁</span></p>
+    </section>
+    <footer><span>Made with love, just for you.</span><span>Take what you need. Leave the rest for later. ♡</span></footer>
+  </main>
+  <div class="modal-backdrop" id="modalBackdrop" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button class="modal-close" id="modalClose" aria-label="Close">×</button><span class="modal-emoji" id="modalEmoji">🍓</span><span class="section-kicker">A LITTLE PICK-ME-UP</span><h2 id="modalTitle">Choose something lovely</h2><p id="modalPrompt">What sounds good?</p><div class="choice-grid" id="choiceGrid"></div></section></div>
+  <audio id="audioPlayer" src="assets/our-song.mp3" loop preload="metadata"></audio>
+  <script src="app.js"></script>
+  <script type="module" src="scene3d.js"></script>
+</body>
+</html>

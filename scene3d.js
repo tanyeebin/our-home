@@ -1,0 +1,262 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const canvas = document.querySelector('#homeCanvas');
+const frame = document.querySelector('#sceneFrame');
+const message = document.querySelector('#sceneMessage');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#e6dfd4');
+scene.fog = new THREE.Fog('#e6dfd4', 28, 58);
+
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.22;
+
+const camera = new THREE.PerspectiveCamera(34, 1, .1, 100);
+camera.position.set(17, 19, 23);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(1.6, .2, .1);
+controls.enableDamping = true;
+controls.dampingFactor = .08;
+controls.minDistance = 13;
+controls.maxDistance = 50;
+controls.maxPolarAngle = Math.PI*.47;
+controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+controls.saveState();
+
+scene.add(new THREE.HemisphereLight('#fff6e6','#786b58',2.15));
+const sunlight = new THREE.DirectionalLight('#fff0d5',3.1);
+sunlight.position.set(-7,17,10);sunlight.castShadow=true;
+sunlight.shadow.mapSize.set(2048,2048);sunlight.shadow.camera.left=-19;sunlight.shadow.camera.right=19;sunlight.shadow.camera.top=18;sunlight.shadow.camera.bottom=-15;
+scene.add(sunlight);
+const fillLight = new THREE.DirectionalLight('#d7e4ff',.65);fillLight.position.set(12,8,-8);scene.add(fillLight);
+
+const world = new THREE.Group();scene.add(world);
+const mat = (color,roughness=.78,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+const M={wood:mat('#bd9064'),woodDark:mat('#8f684d'),cream:mat('#f5ead7'),wall:mat('#f2e6d4'),rose:mat('#dbaea3'),pink:mat('#edc8bd'),sage:mat('#afbd9f'),green:mat('#829f72'),blue:mat('#a5bdc0'),tile:mat('#d9e8e5'),white:mat('#fffaf0'),dark:mat('#48423f'),metal:mat('#a9a79c',.35,.55),gold:mat('#d6b378',.35,.4),red:mat('#ca7568'),fruit:mat('#df8969'),choc:mat('#7a4b38'),leaf:mat('#6e9465'),glass:new THREE.MeshPhysicalMaterial({color:'#ddf4ee',roughness:.12,metalness:.05,transparent:true,opacity:.32,transmission:.25}),screen:new THREE.MeshStandardMaterial({color:'#282d31',roughness:.25,emissive:'#050606',emissiveIntensity:.35})};
+const house = new THREE.Group();world.add(house);
+const clickable=[],actionGroups=new Map(),solidZones=[],walkers=[];
+const v3=(x,y,z)=>new THREE.Vector3(x,y,z);
+function box(parent, material, w,h,d,x,y,z, options={}){
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);mesh.position.set(x,y,z);mesh.castShadow=options.cast!==false;mesh.receiveShadow=options.receive!==false;parent.add(mesh);return mesh;
+}
+function sphere(parent,material,rx,ry,rz,x,y,z,segments=16){const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,segments,Math.max(8,segments-2)),material);mesh.scale.set(rx,ry,rz);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;}
+function cylinder(parent,material,rt,rb,h,x,y,z,segments=18){const mesh=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,segments),material);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;}
+function cone(parent,material,r,h,x,y,z,segments=12){const mesh=new THREE.Mesh(new THREE.ConeGeometry(r,h,segments),material);mesh.position.set(x,y,z);mesh.castShadow=true;parent.add(mesh);return mesh;}
+function markSolid(x,z,rx,rz,owner=null){solidZones.push({x,z,rx,rz,owner});}
+function roomFloor(x,z,w,d,color){box(house,mat(color),w,.22,d,x,-.12,z);box(house,M.woodDark,w,.12,.08,x,-.03,z+d/2-.06);}
+function wall(x,z,w,d,h=1.45,color='#f3e6d4'){
+  box(house,mat(color),w,h,d,x,h/2,z);
+  markSolid(x,z,Math.max(w/2,.12)+.08,Math.max(d/2,.12)+.08);
+}
+function wallX(x,z1,z2,gaps=[]){
+  let cursor=z1;
+  for(const [a,b] of [...gaps,[z2,z2]]){if(a>cursor)wall(x,(cursor+a)/2,.16,a-cursor,1.33);cursor=b;}
+}
+function wallZ(z,x1,x2,gaps=[]){
+  let cursor=x1;
+  for(const [a,b] of [...gaps,[x2,x2]]){if(a>cursor)wall((cursor+a)/2,z,a-cursor,.16,1.28);cursor=b;}
+}
+
+// Raised dollhouse base and the six warm, individually furnished rooms.
+box(house,mat('#9b795c'),16.55,.45,10.55,0,-.42,0);
+box(house,mat('#d7c3a8'),16.25,.15,10.25,0,-.15,0);
+roomFloor(-5.5,-2.5,4.9,4.9,'#d4b9a5');
+roomFloor(-1,-2.5,3.9,4.9,'#c6d9d3');
+roomFloor(4.5,-2.5,7.0,4.9,'#dec7a6');
+roomFloor(-5.5,2.5,4.9,4.9,'#c5c7ad');
+roomFloor(-1,2.5,3.9,4.9,'#d8b9b3');
+roomFloor(4.5,2.5,7.0,4.9,'#d9cea5');
+
+// Low front walls keep the cutaway view open; the taller rear walls frame the rooms.
+wall(0,-5.05,16.2,.22,2.0,'#f1e4cf');
+wall(-8.05,0,.22,10.2,1.55,'#f1e4cf');
+wall(8.05,-3.5,.22,3.0,1.5,'#f1e4cf');
+wall(8.05,4.4,.22,1.2,1.5,'#f1e4cf');
+wall(-2.2,5.03,11.6,.22,.55,'#f1e4cf');wall(7.35,5.03,1.3,.22,.55,'#f1e4cf');
+// Room partitions leave generous door openings between each room.
+wallX(-3,-5,5,[[-3.65,-2.55],[2.6,3.6]]);
+wallX(1,-5,5,[[-3.65,-2.55],[2.6,3.6]]);
+wallZ(0,-8,-3,[[-6.25,-5.0]]);wallZ(0,-3,1,[[-1.65,-.35]]);wallZ(0,1,8,[[3.0,4.3]]);
+
+// Garden terrace, path, flower beds and the glass doors to the living room.
+box(world,mat('#a5ba91'),5.1,.2,9.7,10.8,-.12,0);
+box(world,mat('#b7a483'),1.25,.04,9.1,8.9,.01,0);
+for(let i=0;i<8;i++)box(world,mat(i%2?'#d5c8ad':'#c8b99e'),.8,.035,.75,8.8,.06,-3.55+i*1.02);
+const gardenDoor=interact('door','Glass garden doors',8.18,2.45,[.42,1.6,2.55]);
+box(gardenDoor,mat('#9c7555'),.12,1.42,2.48,0,.71,0);
+for(const z of [-.64,.64]){box(gardenDoor,M.glass,.07,1.16,1.2,-.035,.72,z);box(gardenDoor,M.woodDark,.09,1.25,.045,-.02,.72,z);sphere(gardenDoor,M.gold,.055,.055,.055,.08,.68,z+(z<0?.5:-.5),10);}
+const gardenBlooms=[];
+for(let i=0;i<6;i++){const z=-3.55+i*1.35;box(world,mat('#8f765d'),4.0,.2,.67,10.8,.07,z);markSolid(10.8,z,2.02,.42);for(let j=0;j<5;j++){const x=9.35+j*.72;cylinder(world,M.leaf,.16,.18,.25,x,.3,z,9);gardenBlooms.push(sphere(world,[M.rose,M.gold,M.pink,M.red][(i+j)%4],.15,.12,.15,x,.52,z,12));for(let p=0;p<5;p++){const a=p*Math.PI*2/5;gardenBlooms.push(sphere(world,[M.white,M.pink,M.gold][(i+j+p)%3],.075,.07,.075,x+Math.cos(a)*.16,.54,z+Math.sin(a)*.16,9));}}}
+// Room names float just above the miniature floor.
+function label(text,x,y,z,width=2.4){const c=document.createElement('canvas');c.width=512;c.height=110;const ctx=c.getContext('2d');ctx.fillStyle='rgba(255,250,239,.88)';ctx.beginPath();ctx.roundRect(8,15,496,82,28);ctx.fill();ctx.fillStyle='#705b47';ctx.font='700 36px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,256,56);const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));sprite.position.set(x,y,z);sprite.scale.set(width,.5,1);world.add(sprite);}
+label('OUR BEDROOM',-5.5,2.32,-2.5,2.45);label('BATHROOM',-1,2.32,-2.5,2.15);label('LIVING ROOM',4.5,2.32,-2.5,2.45);label('HIS LITTLE CORNER',-5.5,2.32,2.5,2.7);label('HER HAPPY CORNER',-1,2.32,2.5,2.7);label('SUNNY KITCHEN',4.5,2.32,2.5,2.45);label('LITTLE GARDEN',10.8,2.3,-4.3,2.2);
+
+function interact(action,name,x,z,size=[1,1,1]){
+  const group=new THREE.Group();group.position.set(x,0,z);group.userData={action,name};house.add(group);
+  const hit=new THREE.Mesh(new THREE.BoxGeometry(...size),new THREE.MeshBasicMaterial({transparent:true,opacity:0,colorWrite:false,depthWrite:false}));hit.position.y=size[1]/2;group.add(hit);clickable.push(group);
+  if(!actionGroups.has(action))actionGroups.set(action,[]);actionGroups.get(action).push(group);
+  markSolid(x,z,Math.max(size[0]/2,.36),Math.max(size[2]/2,.36),group);return group;
+}
+function plant(parent,x,y,z,flowers=true){markSolid(x,z,.3,.3);cylinder(parent,mat('#a98463'),.23,.3,.38,x,y+.19,z,12);for(let i=0;i<6;i++){const a=i*Math.PI/3;const leaf=sphere(parent,M.leaf,.13,.33,.11,x+Math.cos(a)*.15,y+.53,z+Math.sin(a)*.15,10);leaf.rotation.z=Math.cos(a)*.45;leaf.rotation.x=Math.sin(a)*.4;}if(flowers){for(let i=0;i<3;i++){const px=x+(i-1)*.16,py=y+.8+(i%2)*.12;sphere(parent,[M.pink,M.gold,M.rose][i],.12,.12,.12,px,py,z,10);}}}
+function table(parent,x,z,w=1.5,d=.85,h=.75,color=M.wood){box(parent,color,w,.14,d,x,h,z);for(const dx of [-w*.42,w*.42])for(const dz of [-d*.38,d*.38])box(parent,M.woodDark,.09,h,.09,x+dx,h/2,z+dz);}
+
+// Bedroom: double bed, two plush friends, framed photo, wardrobe and dressing table.
+const bed=interact('sleep','Our bed',-5.45,-2.35,[2.85,1.6,2.2]);
+box(bed,M.woodDark,2.7,.32,2.05,0,.28,0);box(bed,M.cream,2.52,.28,1.88,0,.52,.02);box(bed,M.pink,2.47,.18,1.25,0,.72,.25);box(bed,M.white,2.42,.18,.48,0,.73,-.55);box(bed,M.wood,2.8,.24,.18,0,.78,-1.02);
+for(const x of [-.7,.7]){const pillow=box(bed,M.white,.78,.18,.46,x,.76,-.65);pillow.rotation.y=-.07;}
+const bear=interact('hug-bear','Teddy bear',-7.0,-2.55,[.72,.8,.72]);sphere(bear,mat('#b78965'),.27,.31,.23,0,.33,0);sphere(bear,mat('#c69a73'),.24,.24,.22,0,.68,-.01);for(const x of [-.16,.16]){sphere(bear,mat('#c69a73'),.1,.12,.1,x,.86,-.01);sphere(bear,mat('#6f5140'),.035,.04,.03,x,.7,.19);}sphere(bear,M.dark,.025,.03,.025,0,.62,.22);
+const swan=interact('hug-swan','Swan plush',-6.95,-1.5,[.76,.7,.72]);sphere(swan,M.white,.31,.18,.23,0,.25,0);const neck=sphere(swan,M.white,.11,.32,.12,.16,.48,-.03);neck.rotation.z=-.28;sphere(swan,M.white,.16,.12,.12,.28,.72,-.02);cone(swan,M.gold,.065,.17,.41,.7,-.02,10).rotation.z=-Math.PI/2;
+const photo=interact('photo','Our photo',-4.18,-4.64,[.95,1.35,.28]);box(photo,M.gold,.92,1.12,.09,0,1.35,0);box(photo,M.cream,.78,.96,.035,0,1.35,.07);
+new THREE.TextureLoader().load('assets/our-photo.jpg',texture=>{texture.colorSpace=THREE.SRGBColorSpace;const pic=new THREE.Mesh(new THREE.PlaneGeometry(.73,.90),new THREE.MeshBasicMaterial({map:texture}));pic.position.set(0,1.35,.095);photo.add(pic);});
+for(const x of [-.32,.32])sphere(photo,M.gold,.045,.045,.035,x,.84,.08);
+const wardrobe=interact('clothes','Wardrobe',-3.62,-1.35,[.95,2.0,1.05]);box(wardrobe,M.wood,.92,1.85,.9,0,.94,0);box(wardrobe,M.cream,.37,1.52,.025,-.24,.95,.47);box(wardrobe,M.pink,.37,1.52,.025,.24,.95,.47);for(const x of [-.09,.09])sphere(wardrobe,M.gold,.035,.035,.035,x,.95,.51);
+const vanity=interact('skincare','Vanity table',-3.77,-3.57,[1.0,1.3,.95]);table(vanity,0,.08,1.05,.62,.66,M.wood);cylinder(vanity,M.gold,.36,.36,.04,0,.73,-.16,24);box(vanity,M.gold,.6,.73,.07,0,1.2,-.39);sphere(vanity,M.blue,.22,.3,.03,0,1.18,-.34);for(const x of [-.3,-.1,.12,.3])cylinder(vanity,[M.rose,M.gold,M.white,M.green][Math.round((x+.3)*5)%4],.055,.06,.22,x,.83,.06,10);
+plant(house,-7.15,.02,-.8);plant(house,-7.2,.02,4.35);
+
+// Bathroom: tiled floor, tub, shower, toilet and the shared sink.
+const tub=interact('bath','Bath tub',-2.0,-4.0,[1.65,.85,1.45]);box(tub,M.white,1.55,.42,1.35,0,.25,0);box(tub,M.blue,1.22,.08,1.04,0,.48,0);box(tub,M.white,1.18,.05,1.0,0,.54,0);cylinder(tub,M.metal,.055,.055,.42,.55,.73,-.42,12).rotation.x=Math.PI/2;
+const shower=interact('shower','Shower',-.15,-4.0,[1.1,2.1,1.2]);box(shower,M.glass,.05,1.75,1.0,-.48,.95,0);box(shower,M.glass,1.0,1.75,.05,0,.95,-.48);cylinder(shower,M.metal,.05,.05,.9,0,1.95,-.42,12).rotation.z=Math.PI/2;cylinder(shower,M.metal,.2,.08,.14,.38,1.94,-.42,16);
+const toilet=interact('toilet','Toilet',.45,-1.0,[.85,1.0,.9]);cylinder(toilet,M.white,.32,.4,.4,0,.25,0,20);sphere(toilet,M.white,.34,.2,.43,0,.44,.12);box(toilet,M.white,.58,.65,.2,0,.58,-.25);
+const sink=interact('wash-hands','Shared sink',-.85,-.78,[1.25,1.1,.7]);box(sink,M.wood,.95,.18,.55,0,.68,0);sphere(sink,M.white,.37,.14,.22,0,.8,0);cylinder(sink,M.metal,.035,.035,.4,0,1.0,-.12,12);cylinder(sink,M.metal,.04,.04,.23,0,1.17,-.3,12).rotation.x=Math.PI/2;for(const x of [-.28,.28]){cylinder(sink,M.rose,.06,.07,.23,x,.83,.28,12);cylinder(sink,M.white,.05,.05,.22,x,.99,.28,12);}
+const hose=interact('water-play','Play with water',.82,-3.0,[.45,.8,.45]);cylinder(hose,M.green,.11,.13,.65,0,.4,0,14);
+const brush=interact('brush-teeth','Toothbrushes',-.35,-.05,[.6,.75,.45]);for(const x of [-.14,.14]){cylinder(brush,M.white,.09,.1,.24,x,.12,0,12);cylinder(brush,M.rose,.025,.025,.48,x,.48,0,10);box(brush,M.white,.1,.1,.05,x,.74,0);}
+box(house,M.tile,3.2,.035,2.0,-1,-.005,-1.3);
+
+// Living room: sofa, husky rug, coffee table, TV, games, speaker, lamp and washer.
+const tv=interact('tv','Television',4.15,-4.5,[2.35,2.0,.7]);box(tv,M.wood,2.05,.42,.48,0,.35,0);for(const x of [-.78,.78])box(tv,M.woodDark,.1,.35,.1,x,.17,.14);const screen=box(tv,M.screen,1.85,1.13,.12,0,1.25,.18);screen.name='tv-screen';box(tv,M.woodDark,1.95,.1,.14,0,.62,.23);
+const sofa=interact('rest','Comfy sofa',4.65,-.72,[3.4,1.35,1.6]);box(sofa,M.rose,3.1,.48,.95,0,.5,0);box(sofa,M.rose,3.1,1.0,.28,0,.96,-.52);for(const x of [-1.53,1.53]){box(sofa,M.pink,.26,.85,1.1,x,.63,-.02);for(let j=0;j<2;j++)cylinder(sofa,M.woodDark,.08,.08,.56,x,.28,(j-.5)*.75,10);}
+for(const x of [-.72,.72]){const cushion=box(sofa,M.pink,1.0,.18,.72,x,.78,.03);cushion.rotation.y=x*.08;}
+const rug=interact('rest','Fluffy husky rug',4.6,.45,[2.4,.2,1.4]);sphere(rug,mat('#ded5c3'),1.15,.08,.66,0,.06,0,24);sphere(rug,mat('#8c8e8d'),.4,.1,.38,0,.13,-.05);for(const x of [-.25,.25]){sphere(rug,M.dark,.07,.055,.08,x,.2,-.1);cone(rug,mat('#787c7d'),.19,.35,x*1.6,.18,-.35,10);}sphere(rug,M.white,.16,.08,.14,0,.21,.16);
+const coffee=interact('treats','Bowl of sweets',6.3,-.55,[1.0,.9,.9]);table(coffee,0,0,1.2,.76,.48,M.woodDark);cylinder(coffee,M.cream,.24,.35,.15,0,.6,0,22);for(let i=0;i<6;i++){const a=i*Math.PI/3;sphere(coffee,i%2?M.choc:M.red,.12,.09,.12,Math.cos(a)*.19,.75,Math.sin(a)*.19,12);}
+const console=interact('game','Game console',2.15,-1.0,[.85,.55,.75]);box(console,M.dark,.62,.2,.42,0,.35,0);for(const x of [-.38,.38]){sphere(console,M.dark,.16,.07,.13,x,.3,.38,12);cylinder(console,M.white,.025,.025,.12,x,.39,.4,8);}
+const speaker=interact('music','Little speaker',7.15,-2.15,[.7,1.0,.7]);box(speaker,M.woodDark,.52,.72,.46,0,.48,0);for(const y of [.35,.65])cylinder(speaker,M.dark,.14,.14,.04,0,y,.25,16);
+const washer=interact('laundry','Washing machine',7.1,-4.0,[1.0,1.45,1.0]);box(washer,M.white,.9,1.2,.82,0,.66,0);const washerDoor=cylinder(washer,M.blue,.32,.32,.08,0,.57,.45,24);washerDoor.rotation.x=Math.PI/2;
+const lamp=interact('rest','Floor lamp',7.45,-.65,[.5,2.4,.5]);cylinder(lamp,M.gold,.32,.38,.12,0,.08,0,16);cylinder(lamp,M.woodDark,.045,.045,1.6,0,.94,0,12);cone(lamp,M.cream,.34,.5,0,1.95,0,16);
+const clock=interact('rest','A little wall clock',6.9,-4.75,[.55,.6,.25]);cylinder(clock,M.woodDark,.3,.3,.12,0,1.65,0,24);const clockFace=cylinder(clock,M.cream,.25,.25,.13,0,1.65,.08,24);clockFace.rotation.x=Math.PI/2;
+
+// His room: desk, monitor, books and a glass case of tiny robot models.
+const desk=interact('work','Computer desk',-5.55,.55,[2.0,1.7,1.1]);table(desk,0,0,1.85,.82,.82,M.wood);box(desk,M.dark,1.05,.72,.12,0,1.28,-.3);box(desk,M.blue,.93,.57,.035,0,1.29,-.22);box(desk,M.dark,.72,.055,.28,0,1.16,.25);cylinder(desk,M.dark,.045,.045,.35,0,1.0,-.1,12);for(let i=0;i<5;i++)box(desk,M.cream,.09,.025,.02,-.35+i*.17,1.2,.2);
+const bookshelf=interact('read','Bookshelf',-7.3,2.8,[.9,2.25,1.05]);box(bookshelf,M.woodDark,.82,2.1,.8,0,1.05,0);for(const y of [.44,1.0,1.56]){box(bookshelf,M.wood,.78,.08,.83,0,y,0);for(let i=0;i<4;i++)box(bookshelf,[M.red,M.blue,M.green,M.gold][i],.12,.38,.36,-.28+i*.18,y+.22,0);}
+const figures=interact('figures','Little model shelf',-3.8,4.05,[1.0,1.9,.95]);box(figures,M.glass,.9,1.65,.8,0,.86,0);box(figures,M.wood,.95,.12,.86,0,.06,0);for(let i=0;i<3;i++){cylinder(figures,[M.white,M.red,M.blue][i],.08,.12,.5,-.26+i*.25,.39,0,10);sphere(figures,[M.white,M.gold,M.dark][i],.12,.12,.12,-.26+i*.25,.72,0,12);}
+const chair=interact('work','Desk chair',-4.55,1.75,[.8,1.15,.8]);box(chair,M.rose,.58,.48,.52,0,.6,0);box(chair,M.rose,.58,.7,.15,0,1.05,-.18);cylinder(chair,M.metal,.06,.06,.48,0,.25,0,10);for(let i=0;i<4;i++){const a=i*Math.PI/2;box(chair,M.metal,.3,.06,.07,Math.cos(a)*.18,.08,Math.sin(a)*.18);}
+
+// Her room: vanity, full-length mirror, handbag display and another bookshelf.
+const makeup=interact('makeup','Makeup table',-.85,.65,[1.75,1.6,1.05]);table(makeup,0,0,1.62,.72,.77,M.wood);box(makeup,M.gold,.72,.7,.07,0,1.18,-.35);sphere(makeup,M.blue,.26,.34,.035,0,1.18,-.29);for(let i=0;i<6;i++){cylinder(makeup,[M.rose,M.red,M.gold,M.white,M.green,M.blue][i],.07,.08,.28,-.58+i*.23,.98,.06,10);}
+const mirror=interact('mirror','Full length mirror',.3,4.0,[.72,2.3,.55]);box(mirror,M.gold,.64,2.05,.12,0,1.05,0);box(mirror,M.blue,.49,1.83,.035,0,1.08,.08);
+const bags=interact('bags','Handbag cabinet',.15,2.55,[1.25,1.45,1.0]);box(bags,M.glass,1.08,1.35,.78,0,.72,0);box(bags,M.wood,.12,1.44,.88,-.58,.72,0);box(bags,M.wood,.12,1.44,.88,.58,.72,0);for(let i=0;i<3;i++){const bag=box(bags,[M.rose,M.gold,M.green][i],.38,.35,.25,-.3+i*.3,.42+(i%2)*.4,.12);bag.rotation.y=(i-1)*.16;const handle=cylinder(bags,M.woodDark,.025,.025,.22,-.3+i*.3,.72+(i%2)*.4,.12,8);handle.rotation.z=Math.PI/2;}
+const herBooks=interact('read','Her bookshelf',-2.55,4.0,[.8,2.0,.9]);box(herBooks,M.woodDark,.68,1.9,.68,0,.95,0);for(const y of [.5,1.1,1.65])for(let i=0;i<3;i++)box(herBooks,[M.rose,M.gold,M.green][i],.12,.36,.35,-.2+i*.2,y,0);
+
+// Sunny kitchen, stocked refrigerator, coffee, water, cooking, dining and dishes.
+const fridge=interact('fridge','Open the fridge',1.85,3.9,[1.35,2.3,1.15]);box(fridge,M.white,1.22,2.15,1.0,0,1.08,0);box(fridge,M.blue,.54,1.9,.05,-.31,1.1,.53);box(fridge,M.white,.54,1.9,.05,.31,1.1,.53);for(const x of [-.45,.45])box(fridge,M.metal,.035,.36,.035,x,1.06,.57);
+for(let i=0;i<7;i++){const x=2.65+i*.72;box(house,M.wood,.66,.78,.62,x,.39,-.02);box(house,M.white,.7,.08,.68,x,.83,-.02);markSolid(x,-.02,.38,.36);}
+const water=interact('drink-water','Water dispenser',2.8,1.15,[.75,1.75,.9]);box(water,M.white,.62,1.25,.65,0,.63,0);cylinder(water,M.blue,.24,.27,.62,0,1.62,0,18);cylinder(water,M.white,.23,.23,.06,0,1.95,0,18);cylinder(water,M.metal,.13,.13,.18,0,1.36,.34,14);
+const coffee=interact('coffee','Coffee machine',4.25,1.15,[.9,1.3,.95]);box(coffee,M.dark,.75,1.05,.67,0,.55,0);box(coffee,M.metal,.5,.28,.06,0,.91,.35);cylinder(coffee,M.cream,.16,.2,.19,.05,.2,.25,16);cylinder(coffee,M.choc,.14,.14,.035,.05,.31,.25,16);
+const stove=interact('cook','Sunny-side-up egg',6.7,1.1,[1.15,1.45,1.0]);box(stove,M.wood,.98,.76,.84,0,.38,0);box(stove,M.dark,.94,.06,.8,0,.8,0);for(const x of [-.28,.28])cylinder(stove,M.metal,.2,.2,.035,x,.85,-.14,18);cylinder(stove,M.dark,.36,.035,.13,0,1.0,.06,20);sphere(stove,M.white,.21,.07,.2,0,1.1,.06,16);sphere(stove,M.gold,.07,.055,.07,.08,1.16,.06,14);
+const dining=interact('eat','Dining table',5.15,3.35,[2.35,1.45,1.45]);table(dining,0,0,2.0,1.2,.78,M.woodDark);cylinder(dining,M.white,.28,.34,.08,0,.88,0,24);sphere(dining,M.gold,.13,.045,.11,0,.96,0,16);for(const x of [-1.12,1.12])for(const z of [-.35,.35]){box(dining,M.sage,.48,.12,.48,x,.58,z);box(dining,M.woodDark,.46,.7,.09,x,.96,z-.18);}
+const dishwasher=interact('dishes','Dishwasher',7.05,2.05,[.9,1.2,.8]);box(dishwasher,M.white,.8,1.0,.65,0,.5,0);box(dishwasher,M.metal,.62,.45,.05,0,.4,.35);for(let i=0;i<3;i++)cylinder(dishwasher,M.cream,.1,.1,.09,-.2+i*.2,.72,.22,12);
+const kitchenSink=interact('wash-hands','Kitchen sink',7.0,.45,[.9,1.15,.85]);box(kitchenSink,M.wood,.82,.18,.72,0,.72,0);sphere(kitchenSink,M.metal,.27,.1,.24,0,.84,.02);cylinder(kitchenSink,M.metal,.035,.035,.42,0,1.05,-.2,10);cylinder(kitchenSink,M.metal,.035,.035,.2,0,1.24,-.38,10).rotation.x=Math.PI/2;
+const bowl=interact('feed',"Mochi's bowl",7.05,4.0,[.78,.5,.72]);cylinder(bowl,M.gold,.32,.42,.18,0,.13,0,20);cylinder(bowl,M.woodDark,.3,.33,.08,0,.22,0,20);for(let i=0;i<5;i++)sphere(bowl,M.choc,.055,.04,.05,(i-2)*.1,.31,(i%2)*.1,10);
+plant(house,7.55,.02,.05);plant(house,1.48,.02,-.12);
+
+// Watering can and plant food sit outside, beside the flower beds.
+const watering=interact('water','Watering can',9.2,3.9,[.75,.9,.75]);sphere(watering,M.green,.34,.32,.3,0,.31,0,16);cylinder(watering,M.green,.1,.13,.3,.2,.5,0,12);const canSpout=cylinder(watering,M.green,.07,.1,.35,.38,.52,0,12);canSpout.rotation.z=-.65;
+const plantFood=interact('fertilize','Plant food',12.4,3.9,[.8,1.0,.8]);cylinder(plantFood,M.rose,.23,.28,.58,0,.3,0,16);cylinder(plantFood,M.gold,.25,.23,.08,0,.62,0,16);box(plantFood,M.white,.18,.2,.035,0,.34,.27);
+
+// Small room windows and a few calm details make the rooms feel lived in.
+function windowFrame(x,z,width=1.3){const g=new THREE.Group();house.add(g);box(g,M.woodDark,width,.88,.12,x,1.5,z);box(g,M.glass,width-.16,.72,.055,x,1.5,z+.09);box(g,M.white,.035,.74,.06,x,1.5,z+.13);box(g,M.white,width-.16,.035,.06,x,1.5,z+.13);}
+windowFrame(-7.84,-2.2,1.3);windowFrame(-7.84,2.45,1.3);windowFrame(-3.03,2.25,1.15);windowFrame(-3.03,-2.1,1.15);
+for(const [x,z] of [[-7.3,-.4],[-3.7,-4.0],[-7.4,4.25],[-3.7,.9],[-2.5,4.3],[.55,.9],[7.5,-.9],[1.6,4.3]])plant(house,x,.02,z,false);
+
+// The couple, Mochi and the tiny vacuum are proper little 3D figures.
+function person(name,skin,hair,clothes,x,z){
+  const g=new THREE.Group();g.position.set(x,0,z);g.userData={actor:name,name:name==='him'?'You':'Your love'};house.add(g);clickable.push(g);
+  cylinder(g,mat('#fffaf0'),.33,.35,.08,0,.05,0,18);
+  const shirt=cylinder(g,mat(clothes),.28,.23,.63,0,.58,0,18);shirt.userData.clothing=true;
+  for(const dx of [-.36,.36]){const arm=cylinder(g,mat(clothes),.09,.12,.42,dx,.6,0,12);arm.rotation.z=dx<0?-.28:.28; sphere(g,mat(skin),.1,.1,.1,dx*1.15,.38,.02,12);}
+  for(const dx of [-.14,.14])cylinder(g,mat('#6a5146'),.095,.12,.43,dx,.22,0,12);
+  cylinder(g,mat(skin),.13,.16,.18,0,.99,0,16);sphere(g,mat(skin),.26,.3,.24,0,1.31,0,20);sphere(g,mat(hair),.27,.17,.25,0,1.5,-.015,20);sphere(g,mat(hair),.13,.25,.24,-.19,1.38,.08,16);
+  for(const dx of [-.09,.09])sphere(g,M.dark,.025,.03,.025,dx,1.34,.21,8);
+  const hit=new THREE.Mesh(new THREE.CapsuleGeometry(.4,.75,3,8),new THREE.MeshBasicMaterial({transparent:true,opacity:0,colorWrite:false,depthWrite:false}));hit.position.y=.82;g.add(hit);walkers.push({group:g,speed:2.7,path:[],actor:true});return g;
+}
+const him=person('him','#efc7a7','#2c2928','#b4c5c6',-2.25,1.38);
+const her=person('her','#f1c9a8','#3d2d28','#d9a9a5',3.12,1.15);
+const dog=new THREE.Group();dog.position.set(5.95,0,3.65);dog.userData={action:'pet',name:'Mochi the husky'};house.add(dog);clickable.push(dog);walkers.push({group:dog,speed:2.0,path:[],animal:true});
+sphere(dog,mat('#858b8e'),.57,.36,.37,0,.5,0,20);sphere(dog,M.white,.33,.29,.38,.39,.72,.02,18);sphere(dog,mat('#70777b'),.32,.24,.34,.42,.82,-.03,18);sphere(dog,M.white,.22,.18,.29,.46,.7,.23,18);
+for(const x of [.18,.64]){const ear=cone(dog,mat('#73797c'),.16,.4,x,1.1,-.05,12);ear.rotation.z=x<.4?.18:-.18;}
+for(const x of [-.34,-.06])cylinder(dog,M.white,.08,.1,.36,x,.22,.12,12);
+sphere(dog,M.dark,.045,.04,.035,.58,.86,.48,10);sphere(dog,M.dark,.04,.035,.035,.3,.86,.46,10);sphere(dog,M.dark,.07,.06,.06,.49,.67,.51,12);
+const tail=sphere(dog,M.white,.12,.43,.12,-.56,.76,-.1,14);tail.rotation.z=-.7;
+const robot=new THREE.Group();robot.position.set(3.3,0,4.35);house.add(robot);walkers.push({group:robot,speed:1.3,path:[],cleaner:true});cylinder(robot,mat('#d0cbbf'),.35,.35,.18,0,.16,0,24);cylinder(robot,M.metal,.23,.23,.045,0,.27,0,24);sphere(robot,M.blue,.045,.025,.04,.15,.27,.16,10);
+const heartMat=new THREE.SpriteMaterial({map:(()=>{const c=document.createElement('canvas');c.width=96;c.height=96;const x=c.getContext('2d');x.fillStyle='#e99594';x.font='74px Arial';x.textAlign='center';x.fillText('♥',48,72);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})(),transparent:true});
+
+// Grid based route planning sends each wanderer around furniture and through door gaps.
+const NAV={minX:-7.8,maxX:13.0,minZ:-4.8,maxZ:4.8,step:.4};
+const toCell=(x,z)=>({ix:Math.round((x-NAV.minX)/NAV.step),iz:Math.round((z-NAV.minZ)/NAV.step)});
+const toWorld=(ix,iz)=>({x:NAV.minX+ix*NAV.step,z:NAV.minZ+iz*NAV.step});
+const maxIX=Math.round((NAV.maxX-NAV.minX)/NAV.step),maxIZ=Math.round((NAV.maxZ-NAV.minZ)/NAV.step);
+function blocked(x,z,ignore=null){if(x<NAV.minX||x>NAV.maxX||z<NAV.minZ||z>NAV.maxZ)return true;return solidZones.some(a=>a.owner!==ignore&&Math.abs(x-a.x)<a.rx+.08&&Math.abs(z-a.z)<a.rz+.08);}
+function findPath(start,target){
+  const startCell=toCell(start.x,start.z),targetCell=toCell(target.x,target.z);let best=null;
+  for(let ring=0;ring<8&&!best;ring++)for(let dx=-ring;dx<=ring;dx++)for(let dz=-ring;dz<=ring;dz++){
+    if(Math.max(Math.abs(dx),Math.abs(dz))!==ring)continue;const ix=targetCell.ix+dx,iz=targetCell.iz+dz,p=toWorld(ix,iz);if(ix<0||ix>maxIX||iz<0||iz>maxIZ||blocked(p.x,p.z))continue;
+    if(!best||Math.hypot(p.x-target.x,p.z-target.z)<Math.hypot(best.x-target.x,best.z-target.z))best=p;
+  }
+  if(!best)return[];
+  const goal=toCell(best.x,best.z),startKey=`${startCell.ix},${startCell.iz}`,goalKey=`${goal.ix},${goal.iz}`;
+  const open=[{ix:startCell.ix,iz:startCell.iz,key:startKey}],came=new Map(),g=new Map([[startKey,0]]),f=new Map([[startKey,Math.abs(startCell.ix-goal.ix)+Math.abs(startCell.iz-goal.iz)]]),closed=new Set();
+  while(open.length){open.sort((a,b)=>(f.get(a.key)||Infinity)-(f.get(b.key)||Infinity));const cur=open.shift();if(cur.key===goalKey){const path=[];let key=goalKey;while(key!==startKey){const [ix,iz]=key.split(',').map(Number);path.unshift(toWorld(ix,iz));key=came.get(key);if(!key)break;}return path;}
+    if(closed.has(cur.key))continue;closed.add(cur.key);
+    for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const ix=cur.ix+dx,iz=cur.iz+dz;if(ix<0||ix>maxIX||iz<0||iz>maxIZ)continue;const p=toWorld(ix,iz);if(blocked(p.x,p.z))continue;if(dx&&dz&&(blocked(toWorld(cur.ix+dx,cur.iz).x,toWorld(cur.ix+dx,cur.iz).z)||blocked(toWorld(cur.ix,cur.iz+dz).x,toWorld(cur.ix,cur.iz+dz).z)))continue;const key=`${ix},${iz}`,cost=(g.get(cur.key)||0)+(dx&&dz?1.414:1);if(cost>=(g.get(key)??Infinity))continue;came.set(key,cur.key);g.set(key,cost);f.set(key,cost+Math.abs(ix-goal.ix)+Math.abs(iz-goal.iz));open.push({ix,iz,key});}
+  }
+  return[];
+}
+function walkTo(walker,x,z){walker.path=findPath({x:walker.group.position.x,z:walker.group.position.z},{x,z});walker.pathIndex=0;}
+function roam(walker){
+  const zones=walker.animal?[[5.5,-.5],[6.8,3.2],[3.8,3.5],[5.8,-2.0],[2.4,2.7]]:walker.cleaner?[[2.5,4.25],[6.0,4.25],[6.0,1.75],[4.1,3.7]]:walker.group===him?[[ -2.1,1.2],[-4.2,1.45],[-5.9,1.6],[-6.4,3.2]]:[[3.1,1.1],[2.3,2.8],[4.2,3.6],[2.4,4.0]];
+  const p=zones[Math.floor(Math.random()*zones.length)];walkTo(walker,p[0],p[1]);
+}
+function moveActor(action,actorId){const candidates=actionGroups.get(action)||[];if(!candidates.length)return;const target=candidates[Math.floor(Math.random()*candidates.length)];const walker=actorId==='her'?walkers.find(w=>w.group===her):walkers.find(w=>w.group===him);if(target.position.x>8&&!doorOpen){window.cozyToggleDoor?.();setTimeout(()=>{if(doorOpen)window.cozyToggleDoor?.();},7500);}walkTo(walker,target.position.x,target.position.z);}
+window.cozyMoveActor=moveActor;
+window.cozyResetView=()=>controls.reset();
+let doorOpen=false;
+window.cozyToggleDoor=()=>{doorOpen=!doorOpen;const door=actionGroups.get('door')?.[0];if(door)door.rotation.y=doorOpen?-.95:0;const zone=solidZones.findIndex(z=>z.owner===door);if(doorOpen&&zone>=0)solidZones.splice(zone,1);else if(!doorOpen&&zone<0)markSolid(door.position.x,door.position.z,.42,1.28,door);message.textContent=doorOpen?'Garden doors open — fresh air!':'Garden doors closed — snug again';setTimeout(()=>{message.textContent='Click an object to explore';},2500);};
+window.cozySceneEffect=action=>{
+  if(action==='pet'){const pop=new THREE.Sprite(heartMat);pop.scale.set(.65,.65,1);pop.position.set(dog.position.x,.0+2.05,dog.position.z);world.add(pop);setTimeout(()=>world.remove(pop),1200);dog.userData.tailWag=performance.now()+1000;return;}
+  if(action==='tv'||action==='game'){for(const group of actionGroups.get('tv')||[]){const target=group.getObjectByName('tv-screen');if(target){target.material=target.material===M.screen?new THREE.MeshStandardMaterial({color:'#fff2bd',emissive:'#ffe4a6',emissiveIntensity:.85}):M.screen;}}}
+  if(action==='water'||action==='fertilize'){const colors=action==='water'?['#75b9bc','#bce2e0']:['#e8ca78','#fff0b0'];for(const group of actionGroups.get(action)||[])group.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material!==M.white)o.material.color.set(colors[Math.floor(Math.random()*colors.length)]);});for(const bloom of gardenBlooms){bloom.material.color.set(action==='water'?'#f5aac4':'#f1ce71');bloom.scale.setScalar(1.18);setTimeout(()=>bloom.scale.setScalar(1),900);}}
+  if(action==='music'){const g=(actionGroups.get('music')||[])[0];if(g)g.scale.set(1.15,1.15,1.15);setTimeout(()=>g?.scale.set(1,1,1),500);}
+  if(action==='laundry'||action==='dishes'){const g=(actionGroups.get(action)||[])[0];if(g)g.rotation.z=.05;setTimeout(()=>{if(g)g.rotation.z=0;},650);}
+  if(action==='mirror'){const w=walkers.find(v=>v.group===(window.cozySelectedActor==='her'?her:him));if(w)w.group.userData.spinUntil=performance.now()+900;}
+  if(action==='photo'){const g=(actionGroups.get('photo')||[])[0];if(g)g.scale.set(1.06,1.06,1.06);setTimeout(()=>g?.scale.set(1,1,1),700);}
+  if(action==='clothes'){const g=window.cozySelectedActor==='her'?her:him;const shirt=g.children.find(o=>o.userData.clothing);if(shirt)shirt.material.color.setHSL(Math.random(),.35,.68);}
+  const groups=actionGroups.get(action)||[];for(const g of groups)if(!['pet','tv','game','water','fertilize','music','laundry','dishes','mirror','photo','clothes'].includes(action)){g.scale.set(1.05,1.05,1.05);setTimeout(()=>g.scale.set(1,1,1),420);}
+};
+
+// Pointer clicks select a miniature or a character; right drag rotates the camera and left drag pans.
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();let down=null;
+function objectRoot(object){let current=object;while(current&&current!==house){if(current.userData.action||current.userData.actor)return current;current=current.parent;}return null;}
+function setPointer(e){const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);}
+renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
+renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return;}down=null;setPointer(e);const hits=raycaster.intersectObjects(clickable,true);if(!hits.length)return;const root=objectRoot(hits[0].object);if(!root)return;if(root.userData.actor){window.cozySelectedActor=root.userData.actor;window.cozySelectActor?.(root.userData.actor);return;}if(root.userData.action){message.textContent=root.userData.name;window.cozyBeginAction?.(root.userData.action);setTimeout(()=>{message.textContent='Click an object to explore';},4000);}});
+renderer.domElement.addEventListener('pointermove',e=>{if(down)return;setPointer(e);const hit=raycaster.intersectObjects(clickable,true)[0];const root=hit&&objectRoot(hit.object);renderer.domElement.style.cursor=root?'pointer':'grab';if(root)message.textContent=root.userData.name;});
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+window.cozySelectedActor='him';
+
+// Visitors and the robot vacuum stroll along an obstacle-aware path grid.
+setInterval(()=>{for(const w of walkers)if(!w.path?.length&&Math.random()>.25)roam(w);},3800);
+let last=performance.now();
+function resize(){const w=frame.clientWidth,h=frame.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;if(w<650){const direction=new THREE.Vector3(17,19,23).normalize();camera.position.copy(controls.target).addScaledVector(direction,43);}camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(frame);resize();
+function animate(now){const dt=Math.min((now-last)/1000,.06);last=now;controls.update();
+  for(const walker of walkers){if(walker.path&&walker.path.length){const p=walker.path[walker.pathIndex];if(!p){walker.path=[];continue;}const g=walker.group,dx=p.x-g.position.x,dz=p.z-g.position.z,d=Math.hypot(dx,dz),step=walker.speed*dt;if(d<step+.04){g.position.x=p.x;g.position.z=p.z;walker.pathIndex++;if(walker.pathIndex>=walker.path.length)walker.path=[];}else{g.position.x+=dx/d*step;g.position.z+=dz/d*step;g.rotation.y=Math.atan2(dx,dz);}if(walker.actor||walker.animal)g.position.y=.035+Math.abs(Math.sin(now*.012))*((walker.animal||walker.path.length)?0.025:0);}else if(walker.cleaner){robot.rotation.y+=dt*.18;}if(walker.group.userData.spinUntil>now)walker.group.rotation.y+=dt*7;}
+  if(dog.userData.tailWag>now){tail.rotation.z=Math.sin(now*.045)*.95-.7;}
+  renderer.render(scene,camera);requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
