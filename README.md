@@ -17,7 +17,9 @@ Because the 3D room uses JavaScript modules, serve this folder over HTTP instead
 
 - Three randomized daily quests, with progress and stars saved in the visitor's browser.
 - A real 3D dollhouse with raised walls, furnished rooms, a garden, and a rotatable camera.
-- Clickable 3D furniture and activities, room details, snack choices, and a photo-cleaning interaction.
+- Clickable 3D furniture and activities, with characters that walk around furniture, sit for activities, and show a seconds countdown above them.
+- A garden watering and fertilizing effect that leaves the flower models and colors intact.
+- Room details, snack choices, and a photo-cleaning interaction.
 - Level progression, with 5 stars for each completed daily quest.
 - A song player (browser autoplay rules may require the visitor to tap play).
 - Right-drag camera orbit, left-drag pan, zoom, and characters, a dog, and a robot vacuum that wander around the furniture.

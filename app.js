@@ -27,7 +27,7 @@
   }
   function toast(title,text,emoji='💛'){ $('#toastTitle').textContent=title;$('#toastText').textContent=text;$('#toastEmoji').textContent=emoji;toastNode.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastNode.classList.remove('show'),4200); }
   function complete(action){ if(!state.today.includes(action)||state.done.includes(action))return;state.done.push(action);state.xp+=5;render();toast('Little quest complete!','You earned 5 little stars. Look at you go!','✦'); }
-  const messages={sleep:'Rest well, love.', 'hug-bear':'A warm, squishy hug.','hug-swan':'A little softness goes a long way.',skincare:'You deserve gentle care, too.','wash-hands':'Fresh hands, fresh start.','brush-teeth':'Look at you, taking care of you.',shower:'You can let some of that tension go.',bath:'Stay as long as you need.',tv:'Nothing else needs your attention right now.',laundry:'One less thing to think about.',game:'A little play, together.',rest:'You have permission to sit for a while.',water:'A little drink for the flowers.',fertilize:'Small care helps things bloom.',work:'One small step is enough.',read:'Take your time with the story.',mirror:'You are more than enough.',makeup:'There is no wrong way to play.','drink-water':'That was a good thing to do for yourself.',coffee:'A warm little pick-me-up.',cook:'Something lovely is on the way.',eat:'Pull up a chair, sweetheart.',dishes:'The kitchen feels lighter already.',feed:'Mochi says thank you!'};
+  const messages={sleep:'Rest well, love.', 'hug-bear':'A warm, squishy hug.','hug-swan':'A little softness goes a long way.',skincare:'You deserve gentle care, too.','toilet':'A little pause for a basic need.','water-play':'A tiny splash of silliness.','wash-hands':'Fresh hands, fresh start.','brush-teeth':'Look at you, taking care of you.',shower:'You can let some of that tension go.',bath:'Stay as long as you need.',tv:'Nothing else needs your attention right now.',laundry:'One less thing to think about.',game:'A little play, together.',rest:'You have permission to sit for a while.',water:'A little drink for the flowers.',fertilize:'Small care helps things bloom.',work:'One small step is enough.',read:'Take your time with the story.',mirror:'You are more than enough.',makeup:'There is no wrong way to play.','drink-water':'That was a good thing to do for yourself.',coffee:'A warm little pick-me-up.',cook:'Something lovely is on the way.',eat:'Pull up a chair, sweetheart.',dishes:'The kitchen feels lighter already.',feed:'Mochi says thank you!','pet':'A tail wag and a tiny heart, just for you.'};
   function begin(action, detail){
     if(busy)return;
     if(action==='fridge'&&!detail)return openChoices('fridge');
@@ -35,12 +35,12 @@
     if(action==='photo'&&!detail)return openPhoto();
     if(action==='music')return openMusic();
     if(action==='door'||action==='garden-door'){window.cozyToggleDoor?.();toast('The garden door','A little fresh air is coming in.','🚪');return;}
-    window.cozySceneEffect?.(action);
-    if(action==='pet'){toast('Mochi loves you','A tail wag and a tiny heart, just for you.','🐕');complete(action);return;}
-    const task=byAction[action],duration=task?task[4]:3000;busy=true;window.cozyMoveActor?.(action,actor);
+    const task=byAction[action],duration=task?task[4]:3000;busy=true;
     const message=detail?.message||messages[action]||'A small moment, just for you.';
     toast(detail?.title||task?.[1]||'A little moment',`${message} ✦`,task?.[3]||'💛');
-    setTimeout(()=>{busy=false;complete(action);},duration);
+    const activity=window.cozyStartActivity?.(action,actor,duration);
+    if(!activity){busy=false;toast('Let’s try that again','The little room could not find a clear path.','♡');return;}
+    Promise.resolve(activity).then(result=>{busy=false;if(result?.ok)complete(action);else toast('Let’s try that again','The little room could not find a clear path.','♡');}).catch(()=>{busy=false;toast('A tiny pause','That interaction got interrupted. Try once more when you are ready.','♡');});
   }
   window.cozyBeginAction=(action,detail)=>begin(action,detail);
   window.cozySelectActor=id=>{actor=id;toast(id==='him'?'You are in charge of him now':'You are in charge of her now','Tap something in the home to choose a little activity.','♡');};
@@ -53,7 +53,7 @@
   }
   function openMusic(){
     $('#modalEmoji').textContent='🎵';$('#modalTitle').textContent='A little music';$('#modalPrompt').textContent='One song is tucked into this home for you.';$('#choiceGrid').innerHTML='<button class="choice-button" data-music="play"><span>🎶</span>Play our song</button><button class="choice-button" data-music="pause"><span>🔕</span>Pause the music</button>';modal.hidden=false;
-    $$('[data-music]').forEach(button=>button.onclick=()=>{closeModal();window.cozyMoveActor?.('music',actor);window.cozySceneEffect?.('music');if(button.dataset.music==='play')playMusic();else pauseMusic();complete('music');});
+    $$('[data-music]').forEach(button=>button.onclick=()=>{closeModal();if(button.dataset.music==='play')playMusic();else pauseMusic();if(busy)return;busy=true;const activity=window.cozyStartActivity?.('music',actor,1500);if(!activity){busy=false;return;}Promise.resolve(activity).then(result=>{busy=false;if(result?.ok)complete('music');});});
   }
   function openPhoto(){
     $('#modalEmoji').textContent='🖼️';$('#modalTitle').textContent='Our favorite memory';$('#modalPrompt').textContent='Rub the little smudges away with your finger.';$('#choiceGrid').innerHTML='<div class="photo-clean-wrap"><img src="assets/our-photo.jpg" alt="Our favorite photo"><canvas id="smudgeCanvas"></canvas></div><button class="choice-button photo-done"><span>♡</span>All clean</button>';modal.hidden=false;
