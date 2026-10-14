@@ -321,7 +321,12 @@ function activityPlans(action,target){
   if(action==='work'){
     return [{nav:{x,z:z+.86},pose:{x,z,y:.6,rotation:Math.PI,kind:'sit'}}];
   }
-  if(action==='clothes')return [{nav:{x,z:z+.95},pose:{x,z:z+.72,y:.035,rotation:Math.PI,kind:'stand'}}];
+  if(action==='clothes'){
+    // The wardrobe sits against the bathroom partition. Approach from its
+    // southwest side so the route stays inside the bedroom and clear of the bed.
+    const pose={x:x-1.25,z:z+.9,y:.035,rotation:Math.atan2(1.25,-.9),kind:'stand'};
+    return [{nav:{x:x-1.5,z:z+.75},pose}];
+  }
   if(action==='mirror')return [{nav:{x:x-.85,z:z-.35},pose:{x:x-.62,z:z-.3,y:.035,rotation:Math.atan2(.62,.3),kind:'stand'}}];
   if(action==='makeup'||action==='skincare')return [{nav:{x,z:z+.94},pose:{x,z:z+.7,y:.28,rotation:Math.PI,kind:'sit'}}];
   if(action==='toilet')return [{nav:{x,z:z+.98},pose:{x,z:z+.24,y:.32,rotation:Math.PI,kind:'sit'}}];
@@ -519,7 +524,7 @@ function animate(now){
         else if(action==='hug-bear'||action==='hug-swan'){left=-.82+Math.sin(now*.01)*.05;right=-.82+Math.sin(now*.01)*.05;walker.arms[0].rotation.z=-.45;walker.arms[1].rotation.z=.45;}
         if(!['makeup','skincare','read','coffee','drink-water','fridge','treats','eat','feed','brush-teeth'].includes(action))walker.head.rotation.set(0,0,0);
         walker.arms[0].rotation.x=left;walker.arms[1].rotation.x=right;
-        let outfit=null;walker.group.traverse(o=>{if(o.userData.outfitTarget)outfit=o;});if(outfit){outfit.material.color.lerp(outfit.userData.outfitTarget,dt*1.5);if(outfit.material.color.distanceTo(outfit.userData.outfitTarget)<.015)delete outfit.userData.outfitTarget;}
+        let outfit=null;walker.group.traverse(o=>{if(o.userData.outfitTarget)outfit=o;});if(outfit){const color=outfit.material?.color,target=outfit.userData.outfitTarget;if(color?.isColor&&target?.isColor){color.lerp(target,dt*1.5);const dr=color.r-target.r,dg=color.g-target.g,db=color.b-target.b;if(dr*dr+dg*dg+db*db<.015*.015)delete outfit.userData.outfitTarget;}}
       }
     }
     else if(walker.animal){
