@@ -15,10 +15,10 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.22;
+renderer.toneMappingExposure = 1.02;
 
 const camera = new THREE.PerspectiveCamera(34, 1, .1, 100);
-camera.position.set(17, 19, 23);
+camera.position.set(14, 16, 19);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(1.6, .2, .1);
 controls.enableDamping = true;
@@ -32,12 +32,12 @@ controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
 controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
 controls.saveState();
 
-scene.add(new THREE.HemisphereLight('#fff6e6','#786b58',2.15));
-const sunlight = new THREE.DirectionalLight('#fff0d5',3.1);
+scene.add(new THREE.HemisphereLight('#fff6e6','#786b58',1.65));
+const sunlight = new THREE.DirectionalLight('#fff0d5',2.45);
 sunlight.position.set(-7,17,10);sunlight.castShadow=true;
 sunlight.shadow.mapSize.set(2048,2048);sunlight.shadow.camera.left=-19;sunlight.shadow.camera.right=19;sunlight.shadow.camera.top=18;sunlight.shadow.camera.bottom=-15;
 scene.add(sunlight);
-const fillLight = new THREE.DirectionalLight('#d7e4ff',.65);fillLight.position.set(12,8,-8);scene.add(fillLight);
+const fillLight = new THREE.DirectionalLight('#d7e4ff',.42);fillLight.position.set(12,8,-8);scene.add(fillLight);
 
 const world = new THREE.Group();scene.add(world);
 const mat = (color,roughness=.78,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
@@ -47,7 +47,7 @@ const clickable=[],actorGroups=[],actionGroups=new Map(),solidZones=[],walkers=[
 const v3=(x,y,z)=>new THREE.Vector3(x,y,z);
 function box(parent, material, w,h,d,x,y,z, options={}){
   const radius=Math.min(.075,w*.16,h*.16,d*.16);
-  const geometry=radius>.004?new RoundedBoxGeometry(w,h,d,3,radius):new THREE.BoxGeometry(w,h,d);
+  const geometry=radius>.004?new RoundedBoxGeometry(w,h,d,5,radius):new THREE.BoxGeometry(w,h,d);
   const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.castShadow=options.cast!==false;mesh.receiveShadow=options.receive!==false;parent.add(mesh);return mesh;
 }
 function sphere(parent,material,rx,ry,rz,x,y,z,segments=20){const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,segments,Math.max(10,segments-2)),material);mesh.scale.set(rx,ry,rz);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;}
@@ -88,9 +88,9 @@ wall(8.05,-3.5,.22,3.0,1.5,'#f1e4cf');
 wall(8.05,4.4,.22,1.2,1.5,'#f1e4cf');
 wall(-2.2,5.03,11.6,.22,.55,'#f1e4cf');wall(7.35,5.03,1.3,.22,.55,'#f1e4cf');
 // Room partitions leave generous door openings between each room.
-wallX(-3,-5,5,[[-3.65,-2.55],[2.6,3.6]]);
-wallX(1,-5,5,[[-3.65,-2.55],[2.6,3.6]]);
-wallZ(0,-8,-3,[[-6.25,-5.0]]);wallZ(0,-3,1,[[-1.65,-.35]]);wallZ(0,1,8,[[3.0,4.3]]);
+wallX(-3,-5,5,[[-3.95,-2.25],[2.25,3.95]]);
+wallX(1,-5,5,[[-3.95,-2.25],[2.25,3.95]]);
+wallZ(0,-8,-3,[[-6.55,-4.75]]);wallZ(0,-3,1,[[-1.95,-.05]]);wallZ(0,1,8,[[2.7,4.6]]);
 
 // Garden terrace, path, flower beds and the glass doors to the living room.
 box(world,mat('#a5ba91'),5.1,.2,9.7,10.8,-.12,0);
@@ -109,7 +109,7 @@ function interact(action,name,x,z,size=[1,1,1],options={}){
   const group=new THREE.Group();group.position.set(x,0,z);group.userData={action,name,size,approach:options.approach||'auto'};house.add(group);
   const hitSize=options.hitSize||size,hit=new THREE.Mesh(new THREE.BoxGeometry(...hitSize),new THREE.MeshBasicMaterial({transparent:true,opacity:0,colorWrite:false,depthWrite:false}));hit.position.y=options.hitY??hitSize[1]/2;group.add(hit);clickable.push(group);
   if(!actionGroups.has(action))actionGroups.set(action,[]);actionGroups.get(action).push(group);
-  if(options.solid!==false){const solidSize=options.solidSize||size;markSolid(x,z,Math.max(solidSize[0]/2,.36),Math.max(solidSize[1]/2,.36),group);}return group;
+  if(options.solid!==false){const solidSize=options.solidSize||[size[0],size[2]];markSolid(x,z,Math.max(solidSize[0]/2,.2),Math.max(solidSize[1]/2,.2),group);}return group;
 }
 function plant(parent,x,y,z,flowers=true){markSolid(x,z,.3,.3);cylinder(parent,mat('#a98463'),.23,.3,.38,x,y+.19,z,16);torus(parent,M.woodDark,.235,.025,x,y+.36,z,Math.PI/2,0,0,20);cylinder(parent,mat('#554d40'),.19,.19,.025,x,y+.375,z,16);for(let i=0;i<6;i++){const a=i*Math.PI/3,tip=[x+Math.cos(a)*.15,y+.78+(i%2)*.05,z+Math.sin(a)*.15];const leaf=sphere(parent,M.leaf,.12,.31,.085,x+Math.cos(a)*.15,y+.54,z+Math.sin(a)*.15,12);leaf.rotation.z=Math.cos(a)*.45;leaf.rotation.x=Math.sin(a)*.4;rod(parent,M.leafLight,.009,[x+Math.cos(a)*.15,y+.43,z+Math.sin(a)*.15],tip,6);}if(flowers){for(let i=0;i<3;i++){const px=x+(i-1)*.16,py=y+.8+(i%2)*.12;sphere(parent,[M.pink,M.gold,M.rose][i],.12,.12,.12,px,py,z,10);for(let p=0;p<5;p++){const a=p*Math.PI*2/5;sphere(parent,M.cream,.025,.035,.025,px+Math.cos(a)*.1,py,z+Math.sin(a)*.1,8);}}}}
 function table(parent,x,z,w=1.5,d=.85,h=.75,color=M.wood){box(parent,color,w,.14,d,x,h,z);for(const dx of [-w*.42,w*.42])for(const dz of [-d*.38,d*.38])box(parent,M.woodDark,.09,h,.09,x+dx,h/2,z+dz);}
@@ -132,12 +132,13 @@ plant(house,-7.2,.02,4.35);
 // Bathroom: tiled floor, tub, shower, toilet and the shared sink.
 const tub=interact('bath','Bath tub',-2.0,-4.0,[1.65,.85,1.45]);box(tub,M.white,1.55,.42,1.35,0,.25,0);box(tub,M.blue,1.22,.08,1.04,0,.48,0);box(tub,M.white,1.18,.05,1.0,0,.54,0);for(const x of [-.55,.55]){cylinder(tub,M.metal,.055,.055,.42,x,.73,-.42,12).rotation.x=Math.PI/2;cylinder(tub,M.gold,.07,.07,.045,x,.76,-.24,12);sphere(tub,M.rose,.035,.035,.035,x,.79,-.2,8);}torus(tub,M.metal,.09,.025,.48,.58,-.38,Math.PI/2);cylinder(tub,M.metal,.055,.055,.42,.55,.73,-.42,12).rotation.x=Math.PI/2;for(let i=0;i<8;i++){const b=sphere(tub,M.foam,.055,.04,.045,-.48+(i%4)*.28,.62,-.24+Math.floor(i/4)*.28,8);b.userData.bubble=true;}
 const shower=interact('shower','Shower',-.15,-4.0,[1.1,2.1,1.2]);box(shower,M.glass,.05,1.75,1.0,-.48,.95,0);box(shower,M.glass,1.0,1.75,.05,0,.95,-.48);cylinder(shower,M.metal,.05,.05,.9,0,1.95,-.42,12).rotation.z=Math.PI/2;const showerHead=cylinder(shower,M.metal,.2,.08,.14,.38,1.94,-.42,16);showerHead.rotation.z=Math.PI/2;torus(shower,M.gold,.13,.025,.38,1.86,-.42,Math.PI/2);cylinder(shower,M.metal,.045,.045,.44,.38,.64,-.42,12);for(const x of [.18,.56]){cylinder(shower,M.gold,.07,.07,.04,x,.66,-.42,12);cylinder(shower,M.rose,.025,.025,.14,x,.75,-.42,8);}
-const toilet=interact('toilet','Toilet',.25,-2.15,[.85,1.0,.9]);toilet.rotation.y=Math.PI;cylinder(toilet,M.white,.32,.4,.4,0,.25,0,20);sphere(toilet,M.white,.34,.2,.43,0,.44,.12);torus(toilet,M.white,.25,.045,0,.51,.13,Math.PI/2,0,0,24);sphere(toilet,M.blue,.13,.025,.16,0,.53,.12,12);box(toilet,M.white,.58,.65,.2,0,.58,-.25);box(toilet,M.cream,.46,.08,.06,0,.81,-.14);cylinder(toilet,M.metal,.025,.025,.04,.2,.84,-.12,8);cylinder(toilet,M.white,.22,.22,.22,.47,.69,.22,16);cylinder(toilet,M.woodDark,.11,.11,.05,.47,.82,.22,12);cylinder(toilet,M.metal,.025,.025,.24,.78,.76,-.2,10).rotation.x=Math.PI/2;cylinder(toilet,M.white,.16,.16,.06,.78,.76,-.33,16);sphere(toilet,M.gold,.055,.025,.055,.47,.84,.22,12);cylinder(toilet,M.metal,.025,.025,.15,-.22,.59,-.4,10).rotation.x=Math.PI/2;torus(toilet,M.cream,.24,.018,0,.52,.13,Math.PI/2,0,0,24);cylinder(toilet,M.cream,.11,.11,.22,-.55,.82,0,16).rotation.z=Math.PI/2;rod(toilet,M.metal,.022,[-.55,.82,-.16],[-.55,.82,.16],8);box(toilet,M.white,.62,.045,.22,0,.91,-.25);
+const toilet=interact('toilet','Toilet',.25,-2.15,[.85,1.0,.9]);cylinder(toilet,M.white,.32,.4,.4,0,.25,0,20);sphere(toilet,M.white,.34,.2,.43,0,.44,.12);torus(toilet,M.white,.25,.045,0,.51,.13,Math.PI/2,0,0,24);sphere(toilet,M.blue,.13,.025,.16,0,.53,.12,12);box(toilet,M.white,.58,.65,.2,0,.58,-.25);box(toilet,M.cream,.46,.08,.06,0,.81,-.14);cylinder(toilet,M.metal,.025,.025,.04,.2,.84,-.12,8);cylinder(toilet,M.white,.22,.22,.22,.47,.69,.22,16);cylinder(toilet,M.woodDark,.11,.11,.05,.47,.82,.22,12);cylinder(toilet,M.metal,.025,.025,.24,.78,.76,-.2,10).rotation.x=Math.PI/2;cylinder(toilet,M.white,.16,.16,.06,.78,.76,-.33,16);sphere(toilet,M.gold,.055,.025,.055,.47,.84,.22,12);cylinder(toilet,M.metal,.025,.025,.15,-.22,.59,-.4,10).rotation.x=Math.PI/2;torus(toilet,M.cream,.24,.018,0,.52,.13,Math.PI/2,0,0,24);cylinder(toilet,M.cream,.11,.11,.22,-.55,.82,0,16).rotation.z=Math.PI/2;rod(toilet,M.metal,.022,[-.55,.82,-.16],[-.55,.82,.16],8);box(toilet,M.white,.62,.045,.22,0,.91,-.25);
 const sink=interact('wash-hands','Shared sink',-.85,-.78,[1.25,1.1,.7]);box(sink,M.wood,.95,.18,.55,0,.68,0);sphere(sink,M.white,.37,.14,.22,0,.8,0);cylinder(sink,M.metal,.035,.035,.4,0,1.0,-.12,12);cylinder(sink,M.metal,.04,.04,.23,0,1.17,-.3,12).rotation.x=Math.PI/2;for(const x of [-.28,.28]){cylinder(sink,M.rose,.06,.07,.23,x,.83,.28,12);cylinder(sink,M.white,.05,.05,.22,x,.99,.28,12);sphere(sink,M.gold,.06,.025,.06,x,1.11,-.28,10);}box(sink,M.gold,.92,.08,.055,0,1.48,-.34);box(sink,M.blue,.76,.68,.04,0,1.83,-.35);torus(sink,M.white,.055,.015,0,1.84,-.315,0,0,0,12);for(const x of [-.38,.38]){cylinder(sink,M.white,.1,.12,.2,x,.96,.1,12);cylinder(sink,M.rose,.055,.05,.05,x,1.08,.1,12);cylinder(sink,M.white,.035,.04,.25,x,.13,.1,10);cylinder(sink,M.blue,.04,.04,.07,x,.27,.1,10);}
 const soap=box(sink,M.rose,.19,.11,.12,.28,.94,-.08);sphere(sink,M.white,.055,.04,.03,.28,1.01,-.08,8);box(sink,M.white,.11,.28,.06,-.42,1.0,-.04);box(sink,M.blue,.13,.12,.065,-.42,1.13,-.04);
 const hose=interact('water-play','Play with water',.82,-3.0,[.45,.8,.45]);cylinder(hose,M.green,.11,.13,.65,0,.4,0,14);
 const brush=interact('brush-teeth','Toothbrushes',-.35,-.05,[.6,.75,.45]);for(const x of [-.14,.14]){cylinder(brush,M.white,.09,.1,.24,x,.12,0,12);cylinder(brush,M.rose,.025,.025,.48,x,.48,0,10);box(brush,M.white,.1,.1,.05,x,.74,0);}
-box(house,M.tile,3.2,.035,2.0,-1,-.005,-1.3);
+box(house,M.tile,3.82,.035,4.72,-1,-.005,-2.5);
+const grout=mat('#c2d4d0');for(let x=-2.72;x<.9;x+=.48)detailLine(house,grout,.012,.006,4.58,x,.016,-2.5);for(let z=-4.72;z<-.18;z+=.48)detailLine(house,grout,3.7,.006,.012,-1,.016,z);
 
 // Living room: sofa, husky rug, coffee table, TV, games, speaker, lamp and washer.
 const tv=interact('tv','Television',4.55,-4.48,[2.35,2.0,.7]);box(tv,M.wood,2.05,.42,.48,0,.35,0);for(const x of [-.78,.78])box(tv,M.woodDark,.1,.35,.1,x,.17,.14);box(tv,M.dark,1.99,1.28,.12,0,1.26,.12);const screen=box(tv,M.screen,1.83,1.12,.06,0,1.28,.2);screen.name='tv-screen';box(tv,M.woodDark,1.95,.1,.14,0,.62,.23);box(tv,M.wood,.18,.12,.14,0,.68,.25);for(let i=0;i<3;i++)sphere(tv,i===0?M.red:M.gold,.025,.025,.025,.82+i*.06,.61,.31,8);cylinder(tv,M.dark,.035,.035,.025,.78,.61,.31,8);
@@ -245,28 +246,31 @@ const robot=new THREE.Group();robot.position.set(6.45,0,-3.1);house.add(robot);w
 const heartMat=new THREE.SpriteMaterial({map:(()=>{const c=document.createElement('canvas');c.width=96;c.height=96;const x=c.getContext('2d');x.fillStyle='#e99594';x.font='74px Arial';x.textAlign='center';x.fillText('♥',48,72);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})(),transparent:true});
 
 // Grid-based routes keep the people and Mochi out of furniture and open doorways.
-const NAV={minX:-7.8,maxX:13.0,minZ:-4.8,maxZ:4.8,step:.35};
+const NAV={minX:-7.8,maxX:13.0,minZ:-4.8,maxZ:4.8,step:.28};
 const toCell=(x,z)=>({ix:Math.round((x-NAV.minX)/NAV.step),iz:Math.round((z-NAV.minZ)/NAV.step)});
 const toWorld=(ix,iz)=>({x:NAV.minX+ix*NAV.step,z:NAV.minZ+iz*NAV.step});
 const maxIX=Math.round((NAV.maxX-NAV.minX)/NAV.step),maxIZ=Math.round((NAV.maxZ-NAV.minZ)/NAV.step);
-function blocked(x,z,clearance=.1,ignore=null){if(x<NAV.minX+clearance||x>NAV.maxX-clearance||z<NAV.minZ+clearance||z>NAV.maxZ-clearance)return true;return solidZones.some(a=>a.owner!==ignore&&Math.abs(x-a.x)<a.rx+.09+clearance&&Math.abs(z-a.z)<a.rz+.09+clearance);}
+function blocked(x,z,clearance=.1,ignore=null){if(x<NAV.minX+clearance||x>NAV.maxX-clearance||z<NAV.minZ+clearance||z>NAV.maxZ-clearance)return true;return solidZones.some(a=>a.owner!==ignore&&Math.abs(x-a.x)<a.rx+clearance&&Math.abs(z-a.z)<a.rz+clearance);}
+function heapPush(heap,node){let i=heap.length;heap.push(node);while(i>0){const parent=(i-1)>>1;if(heap[parent].score<=node.score)break;heap[i]=heap[parent];i=parent;}heap[i]=node;}
+function heapPop(heap){if(!heap.length)return null;const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){const left=i*2+1,right=left+1;if(left>=heap.length)break;const child=right<heap.length&&heap[right].score<heap[left].score?right:left;if(heap[child].score>=last.score)break;heap[i]=heap[child];i=child;}heap[i]=last;}return first;}
 function findPath(start,target,clearance=.16){
-  const startCell=toCell(start.x,start.z),targetCell=toCell(target.x,target.z);let best=null;
-  for(let ring=0;ring<10&&!best;ring++)for(let dx=-ring;dx<=ring;dx++)for(let dz=-ring;dz<=ring;dz++){
-    if(Math.max(Math.abs(dx),Math.abs(dz))!==ring)continue;const ix=targetCell.ix+dx,iz=targetCell.iz+dz,p=toWorld(ix,iz);if(ix<0||ix>maxIX||iz<0||iz>maxIZ||blocked(p.x,p.z,clearance))continue;
-    if(!best||Math.hypot(p.x-target.x,p.z-target.z)<Math.hypot(best.x-target.x,best.z-target.z))best=p;
-  }
-  if(!best)return[];
-  const goal=toCell(best.x,best.z),startKey=`${startCell.ix},${startCell.iz}`,goalKey=`${goal.ix},${goal.iz}`;
-  const open=[{ix:startCell.ix,iz:startCell.iz,key:startKey}],came=new Map(),g=new Map([[startKey,0]]),f=new Map([[startKey,Math.hypot(startCell.ix-goal.ix,startCell.iz-goal.iz)]]),closed=new Set();
-  while(open.length){open.sort((a,b)=>(f.get(a.key)??Infinity)-(f.get(b.key)??Infinity));const cur=open.shift();if(cur.key===goalKey){const path=[];let key=goalKey;while(key!==startKey){const [ix,iz]=key.split(',').map(Number);path.unshift(toWorld(ix,iz));key=came.get(key);if(!key)break;}return path;}
-    if(closed.has(cur.key))continue;closed.add(cur.key);
-    for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const ix=cur.ix+dx,iz=cur.iz+dz;if(ix<0||ix>maxIX||iz<0||iz>maxIZ)continue;const p=toWorld(ix,iz);if(blocked(p.x,p.z,clearance))continue;if(dx&&dz&&(blocked(toWorld(cur.ix+dx,cur.iz).x,toWorld(cur.ix+dx,cur.iz).z,clearance)||blocked(toWorld(cur.ix,cur.iz+dz).x,toWorld(cur.ix,cur.iz+dz).z,clearance)))continue;const key=`${ix},${iz}`,cost=(g.get(cur.key)??0)+(dx&&dz?1.414:1);if(cost>=(g.get(key)??Infinity))continue;came.set(key,cur.key);g.set(key,cost);f.set(key,cost+Math.hypot(ix-goal.ix,iz-goal.iz));open.push({ix,iz,key});}
+  const startCell=toCell(start.x,start.z),targetCell=toCell(target.x,target.z),startKey=`${startCell.ix},${startCell.iz}`;
+  for(let ring=0;ring<11;ring++){
+    const goals=[];for(let dx=-ring;dx<=ring;dx++)for(let dz=-ring;dz<=ring;dz++){
+      if(Math.max(Math.abs(dx),Math.abs(dz))!==ring)continue;const ix=targetCell.ix+dx,iz=targetCell.iz+dz,p=toWorld(ix,iz);if(ix<0||ix>maxIX||iz<0||iz>maxIZ||blocked(p.x,p.z,clearance))continue;goals.push({ix,iz,key:`${ix},${iz}`});
+    }
+    if(!goals.length)continue;
+    const heuristic=(ix,iz)=>{let best=Infinity;for(const goal of goals){const dx=Math.abs(ix-goal.ix),dz=Math.abs(iz-goal.iz),straight=Math.min(dx,dz);best=Math.min(best,Math.max(dx,dz)+(Math.SQRT2-1)*straight);}return best;};
+    const goalKeys=new Set(goals.map(goal=>goal.key)),open=[],came=new Map(),g=new Map([[startKey,0]]),closed=new Set();
+    heapPush(open,{ix:startCell.ix,iz:startCell.iz,key:startKey,score:heuristic(startCell.ix,startCell.iz)});
+    while(open.length){const cur=heapPop(open);if(closed.has(cur.key))continue;closed.add(cur.key);if(goalKeys.has(cur.key)){const path=[];let key=cur.key;while(key!==startKey){const [ix,iz]=key.split(',').map(Number);path.unshift(toWorld(ix,iz));key=came.get(key);if(!key)break;}return path;}
+      for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const ix=cur.ix+dx,iz=cur.iz+dz;if(ix<0||ix>maxIX||iz<0||iz>maxIZ)continue;const p=toWorld(ix,iz);if(blocked(p.x,p.z,clearance))continue;if(dx&&dz&&(blocked(toWorld(cur.ix+dx,cur.iz).x,toWorld(cur.ix+dx,cur.iz).z,clearance)||blocked(toWorld(cur.ix,cur.iz+dz).x,toWorld(cur.ix,cur.iz+dz).z,clearance)))continue;const key=`${ix},${iz}`,cost=(g.get(cur.key)??0)+(dx&&dz?Math.SQRT2:1);if(cost>=(g.get(key)??Infinity))continue;came.set(key,cur.key);g.set(key,cost);heapPush(open,{ix,iz,key,score:cost+heuristic(ix,iz)});}
+    }
   }
   return[];
 }
 function setWalk(walker,path,onComplete){walker.path=path;walker.pathIndex=0;walker.onPathComplete=onComplete||null;if(!path.length&&onComplete)onComplete(true);}
-function walkTo(walker,x,z,onComplete){const start={x:walker.group.position.x,z:walker.group.position.z},clearance=walker.animal?.22:.16,path=findPath(start,{x,z},clearance);if(!path.length&&Math.hypot(start.x-x,start.z-z)>.55){onComplete?.(false);return false;}setWalk(walker,path,onComplete);return true;}
+function walkTo(walker,x,z,onComplete){const start={x:walker.group.position.x,z:walker.group.position.z},clearance=walker.animal?.32:.2;let path=[];for(const padding of [clearance,.12,.06,.025]){path=findPath(start,{x,z},padding);if(path.length||Math.hypot(start.x-x,start.z-z)<=.55)break;}if(!path.length&&Math.hypot(start.x-x,start.z-z)>.55){onComplete?.(false);return false;}setWalk(walker,path,onComplete);return true;}
 function roam(walker){
   const zones=walker.animal?[[6.7,-.55],[6.35,-3.0],[6.85,2.55],[7.35,3.05]]:walker.cleaner?[[6.45,-3.1],[6.75,-1.8],[6.85,2.55],[7.35,2.9]]:walker.actorName==='him'?[[-5.45,3.55],[-4.25,2.0],[-6.75,3.35],[-5.7,1.55]]:[[-.95,1.95],[-.3,3.45],[-2.45,2.4],[-1.85,4.0]];
   const p=zones[Math.floor(Math.random()*zones.length)];walkTo(walker,p[0],p[1]);
@@ -293,7 +297,7 @@ function activityPlans(action,target){
   if(action==='clothes')return [{nav:{x,z:z-.95},pose:{x,z:z-.72,y:.035,rotation:0,kind:'stand'}}];
   if(action==='mirror')return [{nav:{x:x-.85,z:z-.35},pose:{x:x-.62,z:z-.3,y:.035,rotation:Math.atan2(.62,.3),kind:'stand'}}];
   if(action==='makeup'||action==='skincare')return [{nav:{x,z:z+.94},pose:{x,z:z+.7,y:.28,rotation:Math.PI,kind:'sit'}}];
-  if(action==='toilet')return [{nav:{x,z:z-.9},pose:{x,z:z-.08,y:.32,rotation:Math.PI,kind:'sit'}}];
+  if(action==='toilet')return [{nav:{x,z:z+.98},pose:{x,z:z+.24,y:.32,rotation:Math.PI,kind:'sit'}}];
   if(action==='sleep')return [{nav:{x,z:z+1.38},pose:{x,z,y:.7,rotation:0,kind:'sleep'}}];
   if(action==='bath')return [{nav:{x,z:z+1.0},pose:{x,z,y:.42,rotation:0,kind:'sit'}}];
   if(action==='shower')return [{nav:{x,z:z+.94},pose:{x,z:z+.82,y:.035,rotation:Math.PI,kind:'stand'}}];
@@ -313,13 +317,30 @@ function activityPlans(action,target){
     {nav:{x,z:z-halfZ-gap},face:{x,z}}
   ].map(plan=>({...plan,pose:{x:plan.nav.x,z:plan.nav.z,y:.035,rotation:Math.atan2(plan.face.x-plan.nav.x,plan.face.z-plan.nav.z),kind:'stand'}}));
 }
-function choosePlan(walker,action,targets){
-  const start={x:walker.group.position.x,z:walker.group.position.z};let best=null;
-  const clearance=walker.animal?.22:.16;for(const target of targets)for(const plan of activityPlans(action,target)){
-    if(blocked(plan.nav.x,plan.nav.z,clearance))continue;const path=findPath(start,plan.nav,clearance);if(!path.length&&Math.hypot(start.x-plan.nav.x,start.z-plan.nav.z)>.55)continue;
-    const cost=path.length+Math.hypot(start.x-plan.nav.x,start.z-plan.nav.z)*.1;if(!best||cost<best.cost)best={...plan,target,path,cost};
+function routeForApproach(start,nav,clearance){
+  for(const padding of [clearance,.08,.025]){
+    const path=findPath(start,nav,padding);
+    if(path.length||Math.hypot(start.x-nav.x,start.z-nav.z)<=.55)return {path,arrival:path.at(-1)||start};
   }
-  return best;
+  return null;
+}
+function fallbackApproaches(action,target){
+  const x=target.position.x,z=target.position.z,size=target.userData.size||[.8,1,.8];
+  const halfX=Math.max(size[0]/2,.3),halfZ=Math.max(size[2]/2,.3),plans=[];
+  for(const margin of [.34,.72])for(let i=0;i<16;i++){
+    const angle=i*Math.PI/8,c=Math.cos(angle),s=Math.sin(angle),scale=Math.max((halfX+margin)/Math.max(Math.abs(c),.001),(halfZ+margin)/Math.max(Math.abs(s),.001));
+    const nav={x:x+c*scale,z:z+s*scale},rotation=Math.atan2(x-nav.x,z-nav.z);
+    plans.push({nav,pose:{x:nav.x,z:nav.z,y:.035,rotation,kind:'stand'}});
+  }
+  return plans;
+}
+function choosePlan(walker,action,targets){
+  const start={x:walker.group.position.x,z:walker.group.position.z},clearance=walker.animal?.32:.2;
+  const choose=plans=>{let best=null;for(const {target,plan} of plans){const route=routeForApproach(start,plan.nav,clearance);if(!route)continue;const gap=Math.hypot(route.arrival.x-plan.nav.x,route.arrival.z-plan.nav.z),pose=gap>.65?{x:route.arrival.x,z:route.arrival.z,y:.035,rotation:Math.atan2(target.position.x-route.arrival.x,target.position.z-route.arrival.z),kind:'stand'}:plan.pose,cost=route.path.length+Math.hypot(start.x-plan.nav.x,start.z-plan.nav.z)*.1;if(!best||cost<best.cost)best={...plan,pose,target,path:route.path,arrival:route.arrival,cost};}return best;};
+  const preferred=[];for(const target of targets)for(const plan of activityPlans(action,target))preferred.push({target,plan});
+  const bestPreferred=choose(preferred);if(bestPreferred)return bestPreferred;
+  const reachable=[];for(const target of targets)for(const plan of fallbackApproaches(action,target))reachable.push({target,plan});
+  return choose(reachable);
 }
 let doorOpen=false;
 window.cozyResetView=()=>controls.reset();
@@ -341,7 +362,7 @@ function beginActivityPose(walker,action,plan,duration,autoCloseDoor,detail,reso
   group.position.set(plan.pose.x,plan.pose.y,plan.pose.z);group.rotation.y=plan.pose.rotation;
   if(walker.rig){walker.rig.position.set(0,plan.pose.kind==='sit'?.02:0,0);walker.rig.rotation.set(0,0,0);}
   setHeldProps(walker,action,detail);window.cozySceneEffect?.(action,walker,detail);
-  const activity={walker,action,duration,startedAt:performance.now(),exit:{x:plan.nav.x,z:plan.nav.z,rotation:plan.pose.rotation},autoCloseDoor,resolve,finished:false,watchdog:null};
+  const exit=plan.arrival||plan.nav;const activity={walker,action,duration,startedAt:performance.now(),exit:{x:exit.x,z:exit.z,rotation:plan.pose.rotation},autoCloseDoor,resolve,finished:false,watchdog:null};
   activeActivity=activity;activity.watchdog=setTimeout(()=>finishActivity(activity,true),duration+1800);
   progressLabel.textContent=`${actionEmoji[action]||'♡'} ${plan.target.userData.name}`;progressElement.classList.add('visible');
 }
@@ -360,14 +381,13 @@ function startActivity(action,actorId,duration,detail={}){
   if(activeActivity)return Promise.resolve({ok:false});
   const walker=action==='feed'||action==='pet'?dogWalker:walkers.find(w=>w.group===(actorId==='her'?her:him));
   const targets=action==='pet'?[actorId==='her'?her:him]:routeTargets(action);if(!walker||walker.taskBusy||!targets.length)return Promise.resolve({ok:false});
-  const target=targets.length===1?targets[0]:targets[Math.floor(Math.random()*targets.length)];
-  const crossesGardenDoor=(walker.group.position.x>8)!==(target.position.x>8),autoDoor=crossesGardenDoor&&!doorOpen,closeDoorAfter=autoDoor;if(autoDoor)window.cozyToggleDoor?.();
+  const crossesGardenDoor=targets.some(target=>(walker.group.position.x>8)!==(target.position.x>8)),autoDoor=crossesGardenDoor&&!doorOpen,closeDoorAfter=autoDoor;if(autoDoor)window.cozyToggleDoor?.();
   let plan;
   if(action==='pet'){
-    let best=null;const start={x:walker.group.position.x,z:walker.group.position.z};
-    for(let i=0;i<16;i++){const a=i*Math.PI/8,nav={x:target.position.x+Math.cos(a)*.82,z:target.position.z+Math.sin(a)*.82};if(blocked(nav.x,nav.z,.22))continue;const path=findPath(start,nav,.22);if(!path.length&&Math.hypot(start.x-nav.x,start.z-nav.z)>.55)continue;const cost=path.length+Math.hypot(start.x-nav.x,start.z-nav.z)*.1;if(!best||cost<best.cost)best={nav,path,cost};}
+    const target=targets[0],start={x:walker.group.position.x,z:walker.group.position.z};let best=null;
+    for(let i=0;i<16;i++){const a=i*Math.PI/8,nav={x:target.position.x+Math.cos(a)*.82,z:target.position.z+Math.sin(a)*.82},route=routeForApproach(start,nav,.32);if(!route)continue;const cost=route.path.length+Math.hypot(start.x-nav.x,start.z-nav.z)*.1;if(!best||cost<best.cost)best={nav,path:route.path,arrival:route.arrival,cost};}
     if(best)plan={...best,target:dog,pose:{x:best.nav.x,z:best.nav.z,y:.035,rotation:Math.atan2(target.position.x-best.nav.x,target.position.z-best.nav.z),kind:'sit'}};
-  }else plan=choosePlan(walker,action,[target]);
+  }else plan=choosePlan(walker,action,targets);
   if(!plan){if(autoDoor)window.cozyToggleDoor?.();return Promise.resolve({ok:false});}
   walker.taskBusy=true;
   return new Promise(resolve=>{
@@ -441,7 +461,7 @@ window.cozySelectedActor='him';updateSelectionHalo();
 // Visitors and the robot vacuum stroll along an obstacle-aware path grid.
 setInterval(()=>{for(const w of walkers)if(!w.taskBusy&&!w.activityAction&&!w.path?.length&&Math.random()>.25)roam(w);},3800);
 let last=performance.now();
-function resize(){const w=frame.clientWidth,h=frame.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;if(w<650){const direction=new THREE.Vector3(17,19,23).normalize();camera.position.copy(controls.target).addScaledVector(direction,43);}camera.updateProjectionMatrix();}
+function resize(){const w=frame.clientWidth,h=frame.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;if(w<650){const direction=new THREE.Vector3(12.4,15.8,18.9).normalize(),verticalFov=THREE.MathUtils.degToRad(camera.fov),horizontalFov=2*Math.atan(Math.tan(verticalFov/2)*camera.aspect),distance=Math.max(19.5,22.6/(2*Math.tan(horizontalFov/2)));camera.position.copy(controls.target).addScaledVector(direction,distance);}camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(frame);resize();
 function animate(now){
   const dt=Math.min((now-last)/1000,.06);last=now;controls.update();updateSelectionHalo();
