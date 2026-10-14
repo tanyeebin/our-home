@@ -40,7 +40,9 @@
     const task=byAction[action],duration=task?task[4]:3000;busy=true;
     const message=detail?.message||messages[action]||'A small moment, just for you.';
     toast(detail?.title||task?.[1]||'A little moment',`${message} ✦`,task?.[3]||'💛');
-    const activity=window.cozyStartActivity?.(action,actor,duration,detail);
+    let activity;
+    try { activity=window.cozyStartActivity?.(action,actor,duration,detail); }
+    catch(error) { busy=false;console.error(`Could not start ${action} activity`,error);toast('A tiny pause','That little moment needs another try.','♡');return; }
     if(!activity){busy=false;toast('Let’s try that again','The little room could not find a clear path.','♡');return;}
     Promise.resolve(activity).then(result=>{busy=false;if(result?.ok)complete(action);else toast('Let’s try that again','The little room could not find a clear path.','♡');}).catch(()=>{busy=false;toast('A tiny pause','That interaction got interrupted. Try once more when you are ready.','♡');});
   }

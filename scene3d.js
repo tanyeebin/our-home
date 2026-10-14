@@ -44,6 +44,8 @@ const mat = (color,roughness=.78,metalness=0)=>new THREE.MeshStandardMaterial({c
 const M={wood:mat('#bd9064'),woodDark:mat('#8f684d'),cream:mat('#f5ead7'),wall:mat('#f2e6d4'),rose:mat('#dbaea3'),pink:mat('#edc8bd'),sage:mat('#afbd9f'),green:mat('#829f72'),blue:mat('#a5bdc0'),tile:mat('#d9e8e5'),white:mat('#fffaf0'),dark:mat('#48423f'),metal:mat('#a9a79c',.35,.55),gold:mat('#d6b378',.35,.4),red:mat('#ca7568'),fruit:mat('#df8969'),choc:mat('#7a4b38'),leaf:mat('#6e9465'),leafLight:mat('#a5b58a'),foam:mat('#fff8ed'),water:mat('#9edbe2',.25),glass:new THREE.MeshPhysicalMaterial({color:'#ddf4ee',roughness:.12,metalness:.05,transparent:true,opacity:.32,transmission:.25}),screen:new THREE.MeshStandardMaterial({color:'#282d31',roughness:.25,emissive:'#050606',emissiveIntensity:.35})};
 const house = new THREE.Group();world.add(house);
 const clickable=[],actorGroups=[],actionGroups=new Map(),solidZones=[],walkers=[];
+const navigationGridCache=new Map();
+let navigationRevision=0;
 const v3=(x,y,z)=>new THREE.Vector3(x,y,z);
 function box(parent, material, w,h,d,x,y,z, options={}){
   const radius=Math.min(.075,w*.16,h*.16,d*.16);
@@ -56,7 +58,8 @@ function cone(parent,material,r,h,x,y,z,segments=12){const mesh=new THREE.Mesh(n
 function torus(parent,material,r,t,x,y,z,rotationX=0,rotationY=0,rotationZ=0,segments=24){const mesh=new THREE.Mesh(new THREE.TorusGeometry(r,t,8,segments),material);mesh.position.set(x,y,z);mesh.rotation.set(rotationX,rotationY,rotationZ);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;}
 function rod(parent,material,r,a,b,segments=10){const start=v3(...a),end=v3(...b),delta=end.clone().sub(start),mesh=cylinder(parent,material,r,r,delta.length(),...(start.clone().add(end).multiplyScalar(.5).toArray()),segments);mesh.quaternion.setFromUnitVectors(v3(0,1,0),delta.normalize());return mesh;}
 function detailLine(parent,material,w,h,d,x,y,z){return box(parent,material,w,h,d,x,y,z,{cast:false});}
-function markSolid(x,z,rx,rz,owner=null){solidZones.push({x,z,rx,rz,owner});}
+function invalidateNavigation(){navigationRevision++;navigationGridCache.clear();}
+function markSolid(x,z,rx,rz,owner=null){solidZones.push({x,z,rx,rz,owner});invalidateNavigation();}
 function roomFloor(x,z,w,d,color){box(house,mat(color),w,.22,d,x,-.12,z);box(house,M.woodDark,w,.12,.08,x,-.03,z+d/2-.06);}
 function wall(x,z,w,d,h=1.45,color='#f3e6d4'){
   box(house,mat(color),w,h,d,x,h/2,z);
@@ -251,23 +254,47 @@ const toCell=(x,z)=>({ix:Math.round((x-NAV.minX)/NAV.step),iz:Math.round((z-NAV.
 const toWorld=(ix,iz)=>({x:NAV.minX+ix*NAV.step,z:NAV.minZ+iz*NAV.step});
 const maxIX=Math.round((NAV.maxX-NAV.minX)/NAV.step),maxIZ=Math.round((NAV.maxZ-NAV.minZ)/NAV.step);
 function blocked(x,z,clearance=.1,ignore=null){if(x<NAV.minX+clearance||x>NAV.maxX-clearance||z<NAV.minZ+clearance||z>NAV.maxZ-clearance)return true;return solidZones.some(a=>a.owner!==ignore&&Math.abs(x-a.x)<a.rx+clearance&&Math.abs(z-a.z)<a.rz+clearance);}
-function heapPush(heap,node){let i=heap.length;heap.push(node);while(i>0){const parent=(i-1)>>1;if(heap[parent].score<=node.score)break;heap[i]=heap[parent];i=parent;}heap[i]=node;}
-function heapPop(heap){if(!heap.length)return null;const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){const left=i*2+1,right=left+1;if(left>=heap.length)break;const child=right<heap.length&&heap[right].score<heap[left].score?right:left;if(heap[child].score>=last.score)break;heap[i]=heap[child];i=child;}heap[i]=last;}return first;}
+const navSteps=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+function navigationGrid(clearance){
+  const cacheKey=`${navigationRevision}:${clearance.toFixed(3)}`;
+  let grid=navigationGridCache.get(cacheKey);if(grid)return grid;
+  const width=maxIX+1,height=maxIZ+1;grid=new Uint8Array(width*height);
+  for(let iz=0;iz<height;iz++)for(let ix=0;ix<width;ix++){
+    const p=toWorld(ix,iz);grid[iz*width+ix]=blocked(p.x,p.z,clearance)?0:1;
+  }
+  navigationGridCache.set(cacheKey,grid);return grid;
+}
 function findPath(start,target,clearance=.16){
-  const startCell=toCell(start.x,start.z),targetCell=toCell(target.x,target.z),startKey=`${startCell.ix},${startCell.iz}`;
-  for(let ring=0;ring<11;ring++){
-    const goals=[];for(let dx=-ring;dx<=ring;dx++)for(let dz=-ring;dz<=ring;dz++){
-      if(Math.max(Math.abs(dx),Math.abs(dz))!==ring)continue;const ix=targetCell.ix+dx,iz=targetCell.iz+dz,p=toWorld(ix,iz);if(ix<0||ix>maxIX||iz<0||iz>maxIZ||blocked(p.x,p.z,clearance))continue;goals.push({ix,iz,key:`${ix},${iz}`});
-    }
-    if(!goals.length)continue;
-    const heuristic=(ix,iz)=>{let best=Infinity;for(const goal of goals){const dx=Math.abs(ix-goal.ix),dz=Math.abs(iz-goal.iz),straight=Math.min(dx,dz);best=Math.min(best,Math.max(dx,dz)+(Math.SQRT2-1)*straight);}return best;};
-    const goalKeys=new Set(goals.map(goal=>goal.key)),open=[],came=new Map(),g=new Map([[startKey,0]]),closed=new Set();
-    heapPush(open,{ix:startCell.ix,iz:startCell.iz,key:startKey,score:heuristic(startCell.ix,startCell.iz)});
-    while(open.length){const cur=heapPop(open);if(closed.has(cur.key))continue;closed.add(cur.key);if(goalKeys.has(cur.key)){const path=[];let key=cur.key;while(key!==startKey){const [ix,iz]=key.split(',').map(Number);path.unshift(toWorld(ix,iz));key=came.get(key);if(!key)break;}return path;}
-      for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){const ix=cur.ix+dx,iz=cur.iz+dz;if(ix<0||ix>maxIX||iz<0||iz>maxIZ)continue;const p=toWorld(ix,iz);if(blocked(p.x,p.z,clearance))continue;if(dx&&dz&&(blocked(toWorld(cur.ix+dx,cur.iz).x,toWorld(cur.ix+dx,cur.iz).z,clearance)||blocked(toWorld(cur.ix,cur.iz+dz).x,toWorld(cur.ix,cur.iz+dz).z,clearance)))continue;const key=`${ix},${iz}`,cost=(g.get(cur.key)??0)+(dx&&dz?Math.SQRT2:1);if(cost>=(g.get(key)??Infinity))continue;came.set(key,cur.key);g.set(key,cost);heapPush(open,{ix,iz,key,score:cost+heuristic(ix,iz)});}
+  const width=maxIX+1,height=maxIZ+1,startCell=toCell(start.x,start.z),targetCell=toCell(target.x,target.z);
+  if(startCell.ix<0||startCell.ix>=width||startCell.iz<0||startCell.iz>=height)return[];
+  const startIndex=startCell.iz*width+startCell.ix,grid=navigationGrid(clearance),total=width*height;
+  const distances=new Int16Array(total);distances.fill(-1);
+  const previous=new Int32Array(total);previous.fill(-1);
+  const queue=new Int32Array(total);let head=0,tail=0;queue[tail++]=startIndex;distances[startIndex]=0;
+  while(head<tail){
+    const index=queue[head++],ix=index%width,iz=Math.floor(index/width);
+    for(const [dx,dz] of navSteps){
+      const nx=ix+dx,nz=iz+dz;if(nx<0||nx>=width||nz<0||nz>=height)continue;
+      const next=nz*width+nx;if(!grid[next]||distances[next]>=0)continue;
+      if(dx&&dz&&(!grid[iz*width+nx]||!grid[nz*width+ix]))continue;
+      distances[next]=distances[index]+1;previous[next]=index;queue[tail++]=next;
     }
   }
-  return[];
+  let goal=-1;
+  for(let ring=0;ring<11&&goal<0;ring++){
+    let bestDistance=Infinity;
+    for(let dx=-ring;dx<=ring;dx++)for(let dz=-ring;dz<=ring;dz++){
+      if(Math.max(Math.abs(dx),Math.abs(dz))!==ring)continue;
+      const ix=targetCell.ix+dx,iz=targetCell.iz+dz;if(ix<0||ix>=width||iz<0||iz>=height)continue;
+      const candidate=iz*width+ix,distance=distances[candidate];
+      if(grid[candidate]&&distance>=0&&distance<bestDistance){goal=candidate;bestDistance=distance;}
+    }
+  }
+  if(goal<0)return[];
+  const path=[];for(let index=goal;index!==startIndex;index=previous[index]){
+    if(index<0)return[];path.unshift(toWorld(index%width,Math.floor(index/width)));
+  }
+  return path;
 }
 function setWalk(walker,path,onComplete){walker.path=path;walker.pathIndex=0;walker.onPathComplete=onComplete||null;if(!path.length&&onComplete)onComplete(true);}
 function walkTo(walker,x,z,onComplete){const start={x:walker.group.position.x,z:walker.group.position.z},clearance=walker.animal?.32:.2;let path=[];for(const padding of [clearance,.12,.06,.025]){path=findPath(start,{x,z},padding);if(path.length||Math.hypot(start.x-x,start.z-z)<=.55)break;}if(!path.length&&Math.hypot(start.x-x,start.z-z)>.55){onComplete?.(false);return false;}setWalk(walker,path,onComplete);return true;}
@@ -294,7 +321,7 @@ function activityPlans(action,target){
   if(action==='work'){
     return [{nav:{x,z:z+.86},pose:{x,z,y:.6,rotation:Math.PI,kind:'sit'}}];
   }
-  if(action==='clothes')return [{nav:{x,z:z-.95},pose:{x,z:z-.72,y:.035,rotation:0,kind:'stand'}}];
+  if(action==='clothes')return [{nav:{x,z:z+.95},pose:{x,z:z+.72,y:.035,rotation:Math.PI,kind:'stand'}}];
   if(action==='mirror')return [{nav:{x:x-.85,z:z-.35},pose:{x:x-.62,z:z-.3,y:.035,rotation:Math.atan2(.62,.3),kind:'stand'}}];
   if(action==='makeup'||action==='skincare')return [{nav:{x,z:z+.94},pose:{x,z:z+.7,y:.28,rotation:Math.PI,kind:'sit'}}];
   if(action==='toilet')return [{nav:{x,z:z+.98},pose:{x,z:z+.24,y:.32,rotation:Math.PI,kind:'sit'}}];
@@ -344,7 +371,7 @@ function choosePlan(walker,action,targets){
 }
 let doorOpen=false;
 window.cozyResetView=()=>controls.reset();
-window.cozyToggleDoor=()=>{doorOpen=!doorOpen;const door=actionGroups.get('door')?.[0];if(door)door.rotation.y=doorOpen?-.95:0;const zone=solidZones.findIndex(z=>z.owner===door);if(doorOpen&&zone>=0)solidZones.splice(zone,1);else if(!doorOpen&&zone<0&&door)markSolid(door.position.x,door.position.z,.42,1.28,door);message.textContent=doorOpen?'Garden doors open — fresh air!':'Garden doors closed — snug again';setTimeout(()=>{message.textContent='Click an object to explore';},2500);};
+window.cozyToggleDoor=()=>{doorOpen=!doorOpen;const door=actionGroups.get('door')?.[0];if(door)door.rotation.y=doorOpen?-.95:0;const zone=solidZones.findIndex(z=>z.owner===door);if(doorOpen&&zone>=0){solidZones.splice(zone,1);invalidateNavigation();}else if(!doorOpen&&zone<0&&door)markSolid(door.position.x,door.position.z,.42,1.28,door);message.textContent=doorOpen?'Garden doors open — fresh air!':'Garden doors closed — snug again';setTimeout(()=>{message.textContent='Click an object to explore';},2500);};
 
 const progressElement=document.createElement('div');progressElement.className='activity-progress';progressElement.innerHTML='<div class="activity-progress-label"><span></span><b>5s</b></div><div class="activity-progress-track"><i></i></div>';frame.appendChild(progressElement);
 const progressLabel=progressElement.querySelector('span'),progressTime=progressElement.querySelector('b'),progressFill=progressElement.querySelector('i');
